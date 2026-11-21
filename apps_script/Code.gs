@@ -455,6 +455,7 @@ function callSolapiApi_(method, path, payloadObj, apiKey, apiSecret) {
       method: String(method || "GET").toUpperCase(),
       path: path,
       body: payloadObj || null,
+      auth: (apiKey && apiSecret) ? buildSolapiAuthHeader_(apiKey, apiSecret) : "",
       ts: ts,
       nonce: nonce
     });
