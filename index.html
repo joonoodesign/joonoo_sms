@@ -1,0 +1,4029 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light" data-fontsize="large">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <title>주누디자인 고객 문자·알림톡 센터</title>
+
+    <!-- PWA 바탕화면 독립 앱 & 모바일 홈화면 앱 설정 -->
+    <link rel="manifest" href="manifest.json?v=100">
+    <meta name="theme-color" content="#0B192C">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="주누문자센터">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
+
+    <!-- Pretendard 웹폰트 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+
+    <style>
+        /* =====================================================================
+           1. 컬러 토큰 (라이트 기본 — 사무실 모니터 최고 가독성 / 다크 모드 완벽 지원)
+           ===================================================================== */
+        :root,
+        [data-theme="light"] {
+            --bg-app: #eef2f8;
+            --bg-panel: #ffffff;
+            --bg-subtle: #f6f8fc;
+            --bg-input: #ffffff;
+            --bg-hover: #edf3ff;
+            --border-color: #cfd8e6;
+            --border-strong: #94a3b8;
+            --text-main: #0f172a;
+            --text-sub: #334155;
+            --text-muted: #64748b;
+            --navy-primary: #0B192C;
+            --navy-secondary: #1E3E62;
+            --navy-gradient: linear-gradient(135deg, #0B192C 0%, #193759 100%);
+            --gold-accent: #f59e0b;
+            --kakao-yellow: #FEE500;
+            --kakao-brown: #191919;
+            --blue-primary: #1d4ed8;
+            --blue-soft: #dbeafe;
+            --green-ok: #047857;
+            --green-soft: #d1fae5;
+            --red-danger: #dc2626;
+            --red-soft: #fee2e2;
+            --amber-warn: #b45309;
+            --amber-soft: #fef3c7;
+            --shadow-sm: 0 2px 8px rgba(11, 25, 44, 0.06);
+            --shadow-md: 0 8px 24px rgba(11, 25, 44, 0.10);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        [data-theme="dark"] {
+            --bg-app: #0b0f17;
+            --bg-panel: #141b27;
+            --bg-subtle: #1b2434;
+            --bg-input: #0f1520;
+            --bg-hover: #222e42;
+            --border-color: #2b364b;
+            --border-strong: #475569;
+            --text-main: #f8fafc;
+            --text-sub: #cbd5e1;
+            --text-muted: #94a3b8;
+            --navy-primary: #0B192C;
+            --navy-secondary: #254e7c;
+            --navy-gradient: linear-gradient(135deg, #0f223d 0%, #1e3e62 100%);
+            --gold-accent: #fbbf24;
+            --kakao-yellow: #FEE500;
+            --kakao-brown: #191919;
+            --blue-primary: #3b82f6;
+            --blue-soft: rgba(59, 130, 246, 0.18);
+            --green-ok: #34d399;
+            --green-soft: rgba(16, 185, 129, 0.18);
+            --red-danger: #f87171;
+            --red-soft: rgba(239, 68, 68, 0.20);
+            --amber-warn: #fbbf24;
+            --amber-soft: rgba(245, 158, 11, 0.20);
+            --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+            --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.55);
+        }
+
+        /* =====================================================================
+           2. 3단계 글자 크기 스케일 (보통 / 크게[기본] / 특대)
+           ===================================================================== */
+        html[data-fontsize="normal"] {
+            --fs-title: 19px;
+            --fs-panel-h: 16px;
+            --fs-base: 14px;
+            --fs-sm: 12.5px;
+            --fs-xs: 11.5px;
+            --fs-phone: 20px;
+            --fs-editor: 14.5px;
+            --fs-cta: 16.5px;
+            --h-input: 42px;
+        }
+
+        html[data-fontsize="large"] {
+            --fs-title: 21px;
+            --fs-panel-h: 17.5px;
+            --fs-base: 15.5px;
+            --fs-sm: 13.5px;
+            --fs-xs: 12.5px;
+            --fs-phone: 22px;
+            --fs-editor: 16px;
+            --fs-cta: 18px;
+            --h-input: 46px;
+        }
+
+        html[data-fontsize="xlarge"] {
+            --fs-title: 23px;
+            --fs-panel-h: 19px;
+            --fs-base: 17px;
+            --fs-sm: 15px;
+            --fs-xs: 13.5px;
+            --fs-phone: 25px;
+            --fs-editor: 18px;
+            --fs-cta: 20px;
+            --h-input: 52px;
+        }
+
+        /* =====================================================================
+           3. 기본 리셋 & 전체 레이아웃
+           ===================================================================== */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            font-size: var(--fs-base);
+            line-height: 1.45;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding-top: var(--safe-top);
+        }
+
+        button, input, select, textarea {
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        /* =====================================================================
+           4. 상단 글로벌 헤더
+           ===================================================================== */
+        .app-header {
+            background: var(--navy-gradient);
+            color: #ffffff;
+            padding: 10px 18px;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.45);
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 1760px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .brand-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .brand-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 11px;
+            flex-shrink: 0;
+            border: 1.5px solid rgba(255, 215, 0, 0.7);
+            background: #0B192C;
+            object-fit: cover;
+        }
+
+        .brand-titles {
+            min-width: 0;
+        }
+
+        .brand-titles h1 {
+            margin: 0;
+            font-size: var(--fs-title);
+            font-weight: 800;
+            letter-spacing: -0.4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .brand-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 3px;
+            font-size: var(--fs-xs);
+            color: #dbeafe;
+        }
+
+        .conn-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 9px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: var(--fs-xs);
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            cursor: pointer;
+        }
+
+        .conn-badge.live {
+            background: rgba(16, 185, 129, 0.25);
+            border-color: rgba(52, 211, 153, 0.65);
+            color: #a7f3d0;
+        }
+
+        .conn-badge.demo {
+            background: rgba(254, 229, 0, 0.2);
+            border-color: rgba(254, 229, 0, 0.55);
+            color: #fef08a;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .hdr-btn {
+            height: 36px;
+            padding: 0 12px;
+            border-radius: 9px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.10);
+            color: #ffffff;
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s, transform 0.1s;
+            white-space: nowrap;
+        }
+
+        .hdr-btn:hover {
+            background: rgba(255, 255, 255, 0.20);
+        }
+
+        .hdr-btn:active {
+            transform: translateY(1px);
+        }
+
+        .hdr-btn.gold {
+            background: linear-gradient(135deg, #FFD700 0%, #F5B700 100%);
+            color: #0B192C;
+            border-color: #FFD700;
+            font-weight: 800;
+        }
+
+        .hdr-btn.gold:hover {
+            filter: brightness(1.05);
+        }
+
+        .fs-switch {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 9px;
+            padding: 2px;
+        }
+
+        .fs-switch button {
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .fs-switch button.active {
+            background: #ffffff;
+            color: #0B192C;
+        }
+
+        /* =====================================================================
+           5. 메인 3단 와이드 대시보드 (PC >= 1100px)
+           ===================================================================== */
+        .workspace {
+            flex: 1;
+            width: 100%;
+            max-width: 1760px;
+            margin: 0 auto;
+            padding: 14px 16px 24px;
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr) 360px;
+            gap: 14px;
+            align-items: start;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-sticky {
+            position: sticky;
+            top: 74px;
+            max-height: calc(100dvh - 90px);
+        }
+
+        .panel-header {
+            padding: 13px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            background: var(--bg-subtle);
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: var(--fs-panel-h);
+            font-weight: 800;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-sm {
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            color: var(--text-main);
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .btn-sm:hover {
+            background: var(--bg-hover);
+            border-color: var(--blue-primary);
+        }
+
+        .btn-sm.primary {
+            background: var(--navy-primary);
+            color: #ffffff;
+            border-color: var(--navy-primary);
+        }
+
+        [data-theme="dark"] .btn-sm.primary {
+            background: var(--blue-primary);
+            border-color: var(--blue-primary);
+        }
+
+        /* =====================================================================
+           6. 좌측 컬럼: 공용 상용구 보관함 (320px)
+           ===================================================================== */
+        .tpl-toolbar {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .search-input {
+            width: 100%;
+            height: 36px;
+            padding: 0 11px;
+            border-radius: 9px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-input);
+            font-size: var(--fs-sm);
+        }
+
+        .search-input:focus,
+        .field-input:focus,
+        .field-select:focus,
+        .msg-textarea:focus {
+            outline: 2px solid var(--blue-primary);
+            border-color: transparent;
+        }
+
+        .cat-pills {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .cat-pill {
+            padding: 4px 9px;
+            border-radius: 999px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            color: var(--text-sub);
+            font-size: var(--fs-xs);
+            font-weight: 700;
+        }
+
+        .cat-pill.active {
+            background: var(--navy-primary);
+            color: #ffffff;
+            border-color: var(--navy-primary);
+        }
+
+        [data-theme="dark"] .cat-pill.active {
+            background: var(--gold-accent);
+            color: #0B192C;
+            border-color: var(--gold-accent);
+        }
+
+        .tpl-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .tpl-card {
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s, transform 0.08s;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .tpl-card:hover {
+            border-color: var(--blue-primary);
+            background: var(--bg-hover);
+        }
+
+        .tpl-card.selected {
+            border-color: var(--blue-primary);
+            background: var(--blue-soft);
+            box-shadow: inset 3px 0 0 var(--blue-primary);
+        }
+
+        .tpl-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .tpl-badges {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .mini-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: var(--bg-subtle);
+            color: var(--text-sub);
+            border: 1px solid var(--border-color);
+        }
+
+        .mini-badge.ata {
+            background: #fef9c3;
+            color: #854d0e;
+            border-color: #fde047;
+        }
+
+        .tpl-actions {
+            display: flex;
+            gap: 3px;
+        }
+
+        .icon-btn {
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 2px 5px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1;
+            opacity: 0.75;
+        }
+
+        .icon-btn:hover {
+            opacity: 1;
+            background: var(--bg-subtle);
+            border-color: var(--border-color);
+        }
+
+        .tpl-card-title {
+            font-weight: 800;
+            font-size: var(--fs-base);
+            color: var(--text-main);
+            word-break: keep-all;
+        }
+
+        .tpl-card-preview {
+            font-size: var(--fs-xs);
+            color: var(--text-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            white-space: pre-line;
+        }
+
+        /* =====================================================================
+           7. 중앙 컬럼: 문자·알림톡 작성 스튜디오 (Container Query 반응형)
+           ===================================================================== */
+        .composer-panel {
+            container-type: inline-size;
+            container-name: composer;
+        }
+
+        .composer-body {
+            padding: 15px 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .step-block {
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+            border-radius: 13px;
+            padding: 12px 14px;
+        }
+
+        .step-label {
+            font-size: var(--fs-xs);
+            font-weight: 800;
+            color: var(--text-sub);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        /* 담당자 바 */
+        .staff-bar {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-wrap: wrap;
+        }
+
+        .staff-chip {
+            height: 36px;
+            padding: 0 13px;
+            border-radius: 999px;
+            border: 1.5px solid var(--border-color);
+            background: var(--bg-panel);
+            color: var(--text-sub);
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .staff-chip:hover {
+            border-color: var(--blue-primary);
+        }
+
+        .staff-chip.active {
+            background: var(--navy-primary);
+            color: #ffffff;
+            border-color: var(--navy-primary);
+            box-shadow: 0 2px 6px rgba(11, 25, 44, 0.22);
+        }
+
+        [data-theme="dark"] .staff-chip.active {
+            background: var(--blue-primary);
+            border-color: var(--blue-primary);
+        }
+
+        .staff-chip .del-staff {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-left: 2px;
+        }
+
+        /* 고객 번호 & 이름 입력 그리드 */
+        .recipient-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+            gap: 10px;
+        }
+
+        @container composer (max-width: 620px) {
+            .recipient-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .phone-input-wrap {
+            display: flex;
+            gap: 6px;
+            align-items: stretch;
+        }
+
+        .phone-input {
+            flex: 1;
+            min-width: 0;
+            height: var(--h-input);
+            padding: 0 13px;
+            border-radius: 10px;
+            border: 2px solid var(--border-strong);
+            background: var(--bg-input);
+            font-size: var(--fs-phone);
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .field-input,
+        .field-select {
+            width: 100%;
+            height: var(--h-input);
+            padding: 0 12px;
+            border-radius: 10px;
+            border: 1.5px solid var(--border-color);
+            background: var(--bg-input);
+            font-size: var(--fs-base);
+            font-weight: 600;
+        }
+
+        /* 🚨 오늘 중복 발송 경고 배너 */
+        .dup-alert {
+            margin-top: 10px;
+            padding: 11px 14px;
+            border-radius: 11px;
+            background: var(--amber-soft);
+            border: 2px solid var(--gold-accent);
+            color: var(--amber-warn);
+            font-weight: 800;
+            font-size: var(--fs-base);
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            animation: pulseBorder 1.8s infinite;
+        }
+
+        [data-theme="light"] .dup-alert {
+            background: #fff7ed;
+            border-color: #ea580c;
+            color: #9a3412;
+        }
+
+        .dup-alert.show {
+            display: flex;
+        }
+
+        @keyframes pulseBorder {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.25); }
+            50% { box-shadow: 0 0 0 5px rgba(234, 88, 12, 0.08); }
+        }
+
+        /* 발송 모드 선택 탭 */
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        @container composer (max-width: 560px) {
+            .mode-tabs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .mode-tab {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            background: var(--bg-panel);
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            transition: all 0.15s;
+        }
+
+        .mode-tab:hover {
+            border-color: var(--border-strong);
+        }
+
+        .mode-tab.active-sms {
+            border-color: var(--blue-primary);
+            background: var(--blue-soft);
+        }
+
+        .mode-tab.active-ata {
+            border-color: #eab308;
+            background: rgba(254, 229, 0, 0.22);
+        }
+
+        .mode-tab-title {
+            font-weight: 800;
+            font-size: var(--fs-base);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .mode-tab-desc {
+            font-size: var(--fs-xs);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* 스마트 송장 도우미 */
+        .shipping-box {
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            background: var(--bg-panel);
+            overflow: hidden;
+        }
+
+        .shipping-toggle {
+            width: 100%;
+            padding: 10px 14px;
+            border: none;
+            background: var(--bg-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 800;
+            font-size: var(--fs-sm);
+        }
+
+        .shipping-content {
+            padding: 12px 14px;
+            border-top: 1px solid var(--border-color);
+            display: none;
+            flex-direction: column;
+            gap: 9px;
+        }
+
+        .shipping-box.open .shipping-content {
+            display: flex;
+        }
+
+        .shipping-grid {
+            display: grid;
+            grid-template-columns: 165px minmax(0, 1fr) auto;
+            gap: 8px;
+        }
+
+        @container composer (max-width: 600px) {
+            .shipping-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tracking-preview-bar {
+            font-size: var(--fs-xs);
+            color: var(--text-sub);
+            background: var(--bg-subtle);
+            padding: 7px 10px;
+            border-radius: 8px;
+            border: 1px dashed var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            word-break: break-all;
+        }
+
+        /* 편집창 + 실시간 휴대폰 미리보기 2단 컨테이너 쿼리 */
+        .editor-preview-split {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 300px;
+            gap: 14px;
+            align-items: stretch;
+        }
+
+        @container composer (max-width: 760px) {
+            .editor-preview-split {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .editor-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .editor-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .byte-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: var(--fs-xs);
+            font-weight: 800;
+        }
+
+        .byte-badge.sms {
+            background: var(--green-soft);
+            color: var(--green-ok);
+        }
+
+        .byte-badge.lms {
+            background: var(--blue-soft);
+            color: var(--blue-primary);
+        }
+
+        .byte-badge.over {
+            background: var(--red-soft);
+            color: var(--red-danger);
+        }
+
+        .byte-badge.ata {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .quick-snippets {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .snip-btn {
+            padding: 4px 8px;
+            border-radius: 7px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel);
+            font-size: var(--fs-xs);
+            font-weight: 700;
+            color: var(--text-sub);
+        }
+
+        .snip-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--blue-primary);
+            color: var(--blue-primary);
+        }
+
+        .ata-notice-bar {
+            display: none;
+            padding: 9px 12px;
+            border-radius: 10px;
+            background: rgba(254, 229, 0, 0.18);
+            border: 1px solid #eab308;
+            font-size: var(--fs-xs);
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ata-notice-bar.show {
+            display: flex;
+        }
+
+        .msg-textarea {
+            width: 100%;
+            min-height: 250px;
+            flex: 1;
+            padding: 13px 14px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-strong);
+            background: var(--bg-input);
+            font-size: var(--fs-editor);
+            line-height: 1.55;
+            resize: vertical;
+        }
+
+        .msg-textarea[readonly] {
+            background: var(--bg-subtle);
+            cursor: default;
+        }
+
+        /* 실시간 스마트폰 목업 */
+        .phone-mockup {
+            border: 6px solid #1e293b;
+            border-radius: 28px;
+            background: #f1f5f9;
+            color: #0f172a;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            min-height: 360px;
+        }
+
+        .phone-notch {
+            background: #1e293b;
+            color: #cbd5e1;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .phone-top-bar {
+            padding: 9px 12px;
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12.5px;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .phone-screen {
+            flex: 1;
+            padding: 12px 11px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .phone-screen.sms-bg {
+            background: #e9eef5;
+        }
+
+        .phone-screen.kakao-bg {
+            background: #ABC1D1;
+        }
+
+        .sms-bubble {
+            background: #ffffff;
+            color: #111827;
+            border-radius: 4px 16px 16px 16px;
+            padding: 11px 13px;
+            font-size: 13px;
+            line-height: 1.5;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .sms-subject-line {
+            font-weight: 800;
+            color: #0B192C;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .kakao-card {
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            color: #191919;
+        }
+
+        .kakao-card-head {
+            background: #FEE500;
+            color: #191919;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .kakao-card-body {
+            padding: 12px;
+            font-size: 12.8px;
+            line-height: 1.52;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .kakao-card-btns {
+            padding: 0 10px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .kakao-btn-item {
+            display: block;
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 7px;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            color: #111827;
+            text-align: center;
+            text-decoration: none;
+            font-size: 12.5px;
+            font-weight: 700;
+        }
+
+        .kakao-btn-item:hover {
+            background: #e5e7eb;
+        }
+
+        .preview-link {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+
+        /* 하단 발송 실행 바 */
+        .send-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 4px;
+        }
+
+        .sim-toggle-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            color: var(--text-sub);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-send-cta {
+            flex: 1;
+            min-width: 240px;
+            min-height: 56px;
+            padding: 12px 22px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #0B192C 0%, #1d4ed8 100%);
+            color: #ffffff;
+            font-size: var(--fs-cta);
+            font-weight: 900;
+            letter-spacing: -0.3px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 6px 18px rgba(29, 78, 216, 0.28);
+            transition: transform 0.1s, filter 0.15s;
+        }
+
+        .btn-send-cta.ata-cta {
+            background: linear-gradient(135deg, #FEE500 0%, #facc15 100%);
+            color: #191919;
+            box-shadow: 0 6px 18px rgba(234, 179, 8, 0.30);
+        }
+
+        .btn-send-cta:hover:not(:disabled) {
+            filter: brightness(1.06);
+        }
+
+        .btn-send-cta:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        .btn-send-cta:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        /* =====================================================================
+           8. 우측 컬럼: 전 직원 실시간 공용 발송 대장 (360px)
+           ===================================================================== */
+        .kpi-strip {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-panel);
+        }
+
+        .kpi-box {
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: var(--bg-subtle);
+            border: 1px solid var(--border-color);
+        }
+
+        .kpi-label {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .kpi-val {
+            font-size: var(--fs-panel-h);
+            font-weight: 900;
+            color: var(--text-main);
+            margin-top: 2px;
+        }
+
+        .ledger-toolbar {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ledger-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .ledger-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: var(--bg-panel);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .ledger-card:hover {
+            border-color: var(--blue-primary);
+            background: var(--bg-hover);
+        }
+
+        .ledger-row-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            font-size: var(--fs-xs);
+        }
+
+        .staff-tag {
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: var(--blue-soft);
+            color: var(--blue-primary);
+        }
+
+        .status-tag {
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 5px;
+            font-size: 11px;
+        }
+
+        .status-tag.ok {
+            background: var(--green-soft);
+            color: var(--green-ok);
+        }
+
+        .status-tag.sim {
+            background: var(--amber-soft);
+            color: var(--amber-warn);
+        }
+
+        .ledger-who {
+            font-weight: 800;
+            font-size: var(--fs-base);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .ledger-preview {
+            font-size: var(--fs-xs);
+            color: var(--text-muted);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .ledger-track {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--blue-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-muted);
+            font-size: var(--fs-sm);
+        }
+
+        /* =====================================================================
+           9. 모바일/태블릿 반응형 하단 탭 (< 1100px)
+           ===================================================================== */
+        .mobile-nav {
+            display: none;
+        }
+
+        @media (max-width: 1099px) {
+            .workspace {
+                grid-template-columns: 1fr;
+                padding: 10px 10px calc(76px + var(--safe-bottom));
+            }
+
+            .panel-sticky {
+                position: static;
+                max-height: none;
+            }
+
+            .workspace[data-mobtab="compose"] #panelTemplates,
+            .workspace[data-mobtab="compose"] #panelLedger {
+                display: none;
+            }
+
+            .workspace[data-mobtab="templates"] #panelCompose,
+            .workspace[data-mobtab="templates"] #panelLedger {
+                display: none;
+            }
+
+            .workspace[data-mobtab="ledger"] #panelCompose,
+            .workspace[data-mobtab="ledger"] #panelTemplates {
+                display: none;
+            }
+
+            .mobile-nav {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                padding-bottom: var(--safe-bottom);
+                background: var(--bg-panel);
+                border-top: 1.5px solid var(--border-color);
+                box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.10);
+                z-index: 120;
+            }
+
+            .mob-tab-btn {
+                border: none;
+                background: transparent;
+                padding: 10px 4px;
+                font-size: var(--fs-xs);
+                font-weight: 800;
+                color: var(--text-muted);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 3px;
+            }
+
+            .mob-tab-btn.active {
+                color: var(--blue-primary);
+                background: var(--bg-hover);
+            }
+        }
+
+        /* =====================================================================
+           10. 모달 공통 & 설정/템플릿 복사기 UI
+           ===================================================================== */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(11, 25, 44, 0.62);
+            backdrop-filter: blur(3px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 300;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-box {
+            width: 100%;
+            max-width: 780px;
+            max-height: 90dvh;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            box-shadow: var(--shadow-md);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-box.narrow {
+            max-width: 560px;
+        }
+
+        .modal-head {
+            padding: 15px 18px;
+            background: var(--navy-gradient);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .modal-head h2 {
+            margin: 0;
+            font-size: var(--fs-panel-h);
+            font-weight: 800;
+        }
+
+        .modal-close {
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            font-weight: 800;
+        }
+
+        .modal-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-subtle);
+            overflow-x: auto;
+        }
+
+        .modal-tab-btn {
+            padding: 11px 16px;
+            border: none;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            font-weight: 800;
+            font-size: var(--fs-sm);
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .modal-tab-btn.active {
+            color: var(--blue-primary);
+            border-bottom-color: var(--blue-primary);
+            background: var(--bg-panel);
+        }
+
+        .modal-body {
+            padding: 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-size: var(--fs-sm);
+            font-weight: 800;
+            color: var(--text-sub);
+        }
+
+        .form-hint {
+            font-size: var(--fs-xs);
+            color: var(--text-muted);
+        }
+
+        .form-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row-2 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .guide-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+            background: var(--bg-subtle);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .code-pre {
+            margin: 0;
+            padding: 11px 12px;
+            border-radius: 9px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            font-family: 'Pretendard', monospace;
+            font-size: var(--fs-sm);
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .btn-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: var(--fs-xs);
+            background: var(--bg-panel);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .btn-table th,
+        .btn-table td {
+            border: 1px solid var(--border-color);
+            padding: 7px 9px;
+            text-align: left;
+        }
+
+        .btn-table th {
+            background: var(--bg-subtle);
+            font-weight: 800;
+        }
+
+        /* 토스트 알림 */
+        .toast-wrap {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: min(420px, calc(100vw - 32px));
+        }
+
+        .toast {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: #0B192C;
+            color: #ffffff;
+            font-size: var(--fs-sm);
+            font-weight: 700;
+            box-shadow: var(--shadow-md);
+            border-left: 5px solid #FFD700;
+            animation: slideUp 0.2s ease-out;
+        }
+
+        .toast.err {
+            background: #7f1d1d;
+            border-left-color: #f87171;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- =====================================================================
+         상단 글로벌 헤더
+         ===================================================================== -->
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand-group">
+                <img src="icon-192.png" alt="주누문자센터 아이콘" class="brand-logo" onerror="this.style.display='none'">
+                <div class="brand-titles">
+                    <h1>주누디자인 고객 문자·알림톡 센터</h1>
+                    <div class="brand-meta">
+                        <span id="connStatusBadge" class="conn-badge demo" title="클릭하여 서버·솔라피 설정 열기">
+                            🟡 즉시 체험 모드 (과금 0원)
+                        </span>
+                        <span id="headerSenderSpan">발신: 053-267-3973</span>
+                        <span id="headerBalanceSpan">잔액: 체험모드</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-controls">
+                <button type="button" id="btnPwaInstall" class="hdr-btn gold" title="회사 PC 바탕화면에 독립 프로그램으로 고정">
+                    💻 PC 바탕화면 앱 설치
+                </button>
+
+                <div class="fs-switch" role="group" aria-label="글자 크기 조절">
+                    <button type="button" data-setfs="normal">보통</button>
+                    <button type="button" data-setfs="large" class="active">크게</button>
+                    <button type="button" data-setfs="xlarge">특대</button>
+                </div>
+
+                <button type="button" id="btnThemeToggle" class="hdr-btn" title="라이트/다크 테마 전환">
+                    🌙 다크
+                </button>
+
+                <button type="button" id="btnOpenSettings" class="hdr-btn">
+                    ⚙️ 서버·솔라피 연결 설정
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- =====================================================================
+         메인 3단 관제 워크스페이스
+         ===================================================================== -->
+    <main id="mainWorkspace" class="workspace" data-mobtab="compose">
+
+        <!-- [좌측 320px] 공용 상용구 보관함 -->
+        <section id="panelTemplates" class="panel panel-sticky" aria-label="공용 상용구 보관함">
+            <div class="panel-header">
+                <h2 class="panel-title">📑 공용 상용구 보관함</h2>
+                <button type="button" id="btnAddTemplate" class="btn-sm primary">+ 상용구 추가</button>
+            </div>
+
+            <div class="tpl-toolbar">
+                <input type="search" id="tplSearchInput" class="search-input" placeholder="🔍 상용구 제목·내용 빠른 검색...">
+                <div id="tplCatPills" class="cat-pills">
+                    <button type="button" class="cat-pill active" data-cat="ALL">전체</button>
+                    <button type="button" class="cat-pill" data-cat="상담·안내">상담·안내</button>
+                    <button type="button" class="cat-pill" data-cat="배송·출고">배송·출고</button>
+                    <button type="button" class="cat-pill" data-cat="시안·교정">시안·교정</button>
+                    <button type="button" class="cat-pill" data-cat="결제·입금">결제·입금</button>
+                    <button type="button" class="cat-pill" data-cat="방문·수령">방문·수령</button>
+                </div>
+            </div>
+
+            <div id="tplListContainer" class="tpl-list"></div>
+        </section>
+
+        <!-- [중앙 유동 확장] 문자·알림톡 작성 및 발송 스튜디오 -->
+        <section id="panelCompose" class="panel composer-panel" aria-label="문자 및 알림톡 발송 작성">
+            <div class="panel-header">
+                <h2 class="panel-title">✉️ 회사번호 문자 · 카카오 알림톡 발송</h2>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" id="btnTestDupDemo" class="btn-sm" title="오늘 이미 발송한 번호 중복 경고 테스트">
+                        🧪 중복경고 체험
+                    </button>
+                    <button type="button" id="btnResetComposer" class="btn-sm">
+                        🧹 입력 초기화
+                    </button>
+                </div>
+            </div>
+
+            <div class="composer-body">
+                <!-- 1) 사내 담당자 선택 바 -->
+                <div class="step-block">
+                    <div class="step-label">
+                        <span>① 발송 담당자 선택 (내 PC에 자동 기억 · 발송대장에 실명 기록)</span>
+                        <button type="button" id="btnAddStaff" class="btn-sm">+ 담당자 추가</button>
+                    </div>
+                    <div id="staffBarContainer" class="staff-bar"></div>
+                </div>
+
+                <!-- 2) 수신 고객 전화번호 & 고객명 + 실시간 중복 발송 감시 -->
+                <div class="step-block">
+                    <div class="step-label">
+                        <span>② 수신 고객 번호 및 고객명·상호</span>
+                        <span style="color:var(--text-muted); font-weight:600;">숫자만 쳐도 하이픈(-) 자동 입력</span>
+                    </div>
+
+                    <div class="recipient-grid">
+                        <div class="phone-input-wrap">
+                            <input
+                                type="tel"
+                                id="customerPhoneInput"
+                                class="phone-input"
+                                inputmode="tel"
+                                maxlength="14"
+                                placeholder="010-0000-0000"
+                                autocomplete="off"
+                            >
+                            <button type="button" id="btnPastePhone" class="btn-sm" style="height:var(--h-input); padding:0 12px;">
+                                📋 붙여넣기
+                            </button>
+                        </div>
+
+                        <div>
+                            <input
+                                type="text"
+                                id="customerNameInput"
+                                class="field-input"
+                                maxlength="40"
+                                placeholder="고객명 또는 상호 (미입력 시 '고객님' 자동 적용)"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- 🚨 실시간 오늘 중복 발송 경고 배너 -->
+                    <div id="dupWarningBanner" class="dup-alert" role="alert">
+                        <span id="dupWarningText"></span>
+                        <button type="button" id="btnShowDupDetail" class="btn-sm">발송내역 보기</button>
+                    </div>
+                </div>
+
+                <!-- 3) 발송 모드 선택 탭 -->
+                <div class="mode-tabs" role="tablist" aria-label="발송 방식 선택">
+                    <button type="button" id="tabModeSms" class="mode-tab active-sms" role="tab" aria-selected="true">
+                        <div class="mode-tab-title">
+                            <span id="tabModeSmsTitle">✉️ 회사번호 문자 (053-267-3973)</span>
+                            <span class="mini-badge">SMS / LMS</span>
+                        </div>
+                        <div class="mode-tab-desc">자유롭게 문구 수정 가능 · 단문 약 18원 / 장문 약 45원</div>
+                    </button>
+
+                    <button type="button" id="tabModeAta" class="mode-tab" role="tab" aria-selected="false">
+                        <div class="mode-tab-title">
+                            <span>🟡 카카오 알림톡 (버튼 포함)</span>
+                            <span class="mini-badge ata">약 13원 · 문자대체</span>
+                        </div>
+                        <div class="mode-tab-desc">주누디자인 노란 알림톡 + 버튼 전송 · 실패 시 문자 자동 대체</div>
+                    </button>
+                </div>
+
+                <!-- 4) 스마트 택배·송장 링크 자동완성 도우미 -->
+                <div id="shippingHelperBox" class="shipping-box">
+                    <button type="button" id="btnToggleShipping" class="shipping-toggle">
+                        <span>🚚 스마트 택배·송장 배송조회 링크 자동완성 도우미 (한진택배 기본)</span>
+                        <span id="shippingToggleArrow">▼ 펼치기</span>
+                    </button>
+                    <div class="shipping-content">
+                        <div class="shipping-grid">
+                            <select id="courierSelect" class="field-select" aria-label="택배사 선택">
+                                <option value="한진택배" selected>한진택배 (주거래)</option>
+                                <option value="CJ대한통운">CJ대한통운</option>
+                                <option value="로젠택배">로젠택배</option>
+                                <option value="우체국택배">우체국택배</option>
+                                <option value="롯데택배">롯데택배</option>
+                                <option value="경동택배">경동택배</option>
+                                <option value="대신택배">대신택배</option>
+                            </select>
+
+                            <input
+                                type="text"
+                                id="waybillInput"
+                                class="field-input"
+                                placeholder="송장번호 입력 (숫자만 입력 시 본문·버튼 링크에 즉시 반영!)"
+                            >
+
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" id="btnPasteWaybill" class="btn-sm" style="height:var(--h-input);">📋 송장 붙여넣기</button>
+                                <button type="button" id="btnOpenTrackingTest" class="btn-sm" style="height:var(--h-input);" title="새 탭에서 배송조회 링크 작동 확인">🔗 조회 테스트</button>
+                            </div>
+                        </div>
+
+                        <div class="tracking-preview-bar">
+                            <span id="trackingUrlPreview">송장번호를 입력하시면 택배사 직통 배송조회 URL이 자동으로 생성됩니다.</span>
+                            <button type="button" id="btnApplyShippingTpl" class="btn-sm">📦 출고 상용구 불러오기</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5) 메시지 편집창 + 실시간 고객 휴대폰 미리보기 -->
+                <div class="editor-preview-split">
+                    <div class="editor-col">
+                        <div class="editor-topbar">
+                            <span id="byteCounterBadge" class="byte-badge sms">단문 SMS · 0 / 90 Byte (약 18원)</span>
+
+                            <div class="quick-snippets">
+                                <button type="button" class="snip-btn" data-insert="https://pf.kakao.com/_xhlXFj/chat">+카톡상담링크</button>
+                                <button type="button" class="snip-btn" data-insert="농협 351-1052-3914-03 (예금주: 전현수)">+농협계좌</button>
+                                <button type="button" class="snip-btn" data-insert="대구광역시 달서구 구마로39길 38">+사업장주소</button>
+                                <button type="button" class="snip-btn" data-insert="https://joonoo.co.kr">+자사몰</button>
+                                <button type="button" id="btnRestoreTemplate" class="snip-btn" title="현재 선택한 상용구 원문으로 되돌리기">🔄 원문복원</button>
+                            </div>
+                        </div>
+
+                        <!-- 장문 LMS 제목 입력칸 (SMS 모드 전용) -->
+                        <div id="lmsSubjectWrap">
+                            <input
+                                type="text"
+                                id="msgSubjectInput"
+                                class="field-input"
+                                style="height:38px; font-size:var(--fs-sm);"
+                                maxlength="40"
+                                placeholder="문자 제목 (90Byte 초과 장문 LMS일 때 고객 화면 상단에 굵게 표시됩니다)"
+                            >
+                        </div>
+
+                        <!-- 카카오 알림톡 안내 바 (ATA 모드 전용) -->
+                        <div id="ataNoticeBar" class="ata-notice-bar">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <strong id="ataTplIdStatus">🟡 알림톡 템플릿 상태 확인 중...</strong>
+                                <div style="display:flex; gap:6px;">
+                                    <button type="button" id="btnEditCurrentTplCode" class="btn-sm">템플릿 코드 입력</button>
+                                    <button type="button" id="btnOpenKakaoGuideTab" class="btn-sm">승인용 원고 복사기</button>
+                                </div>
+                            </div>
+                            <label style="display:inline-flex; align-items:center; gap:6px; font-weight:700; cursor:pointer;">
+                                <input type="checkbox" id="chkFallbackSms" checked>
+                                카톡 미사용·차단 고객은 회사번호(053-267-3973) 문자로 자동 대체발송 (권장)
+                            </label>
+                        </div>
+
+                        <textarea
+                            id="msgBodyTextarea"
+                            class="msg-textarea"
+                            placeholder="좌측 상용구를 클릭하시거나 고객님께 보낼 안내 문구를 입력해 주세요."
+                        ></textarea>
+                    </div>
+
+                    <!-- 실시간 고객 휴대폰 미리보기 목업 -->
+                    <aside class="phone-mockup" aria-label="실시간 고객 휴대폰 수신 화면 미리보기">
+                        <div class="phone-notch">
+                            <span>실시간 고객 화면 미리보기</span>
+                            <span>LTE 100%</span>
+                        </div>
+                        <div id="mockupHeaderBar" class="phone-top-bar">
+                            <span>← 주누디자인 (053-267-3973)</span>
+                            <span style="font-size:11px; color:#64748b;">문자메시지</span>
+                        </div>
+                        <div id="mockupScreen" class="phone-screen sms-bg"></div>
+                    </aside>
+                </div>
+
+                <!-- 6) 하단 발송 실행 액션 바 -->
+                <div class="send-action-bar">
+                    <label class="sim-toggle-label" title="체크 시 실제 솔라피 요금 차감 없이 발송내역 공유와 동작만 안전하게 테스트합니다.">
+                        <input type="checkbox" id="chkTestSimulation" checked>
+                        <span id="simToggleText">🧪 과금 0원 체험·테스트 발송</span>
+                    </label>
+
+                    <button type="button" id="btnSendMain" class="btn-send-cta">
+                        🚀 회사번호로 즉시 발송 (Ctrl + Enter)
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- [우측 360px] 전 직원 실시간 공용 발송 대장 -->
+        <section id="panelLedger" class="panel panel-sticky" aria-label="전 직원 실시간 공용 발송 대장">
+            <div class="panel-header">
+                <h2 class="panel-title">📋 전 직원 공용 발송대장</h2>
+                <div style="display:flex; gap:5px;">
+                    <button type="button" id="btnSyncNow" class="btn-sm" title="구글 시트 최신 내역 및 잔액 새로고침">🔄 동기화</button>
+                    <button type="button" id="btnExportCsv" class="btn-sm" title="현재 발송내역을 엑셀 CSV 파일로 저장">📥 엑셀 CSV</button>
+                </div>
+            </div>
+
+            <div class="kpi-strip">
+                <div class="kpi-box">
+                    <div class="kpi-label">오늘 총 발송 건수</div>
+                    <div id="kpiTodayTotal" class="kpi-val">0건</div>
+                </div>
+                <div class="kpi-box">
+                    <div class="kpi-label">문자 / 알림톡</div>
+                    <div id="kpiTodaySplit" class="kpi-val" style="font-size:var(--fs-sm);">문자 0 · 알림톡 0</div>
+                </div>
+            </div>
+
+            <div class="ledger-toolbar">
+                <input
+                    type="search"
+                    id="ledgerSearchInput"
+                    class="search-input"
+                    placeholder="🔍 고객명, 번호 뒷자리, 송장번호, 담당자 검색"
+                >
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <div id="ledgerFilterPills" class="cat-pills">
+                        <button type="button" class="cat-pill active" data-lfilter="ALL">전체</button>
+                        <button type="button" class="cat-pill" data-lfilter="TODAY">오늘 발송</button>
+                        <button type="button" class="cat-pill" data-lfilter="MINE">내 발송건</button>
+                    </div>
+                    <button type="button" id="btnClearDemoRows" class="btn-sm" style="display:none;">예시 지우기</button>
+                </div>
+            </div>
+
+            <div id="ledgerListContainer" class="ledger-list"></div>
+        </section>
+    </main>
+
+    <!-- 모바일 전용 하단 탭 네비게이션 (< 1100px) -->
+    <nav class="mobile-nav" aria-label="모바일 화면 전환">
+        <button type="button" class="mob-tab-btn active" data-mobtarget="compose">
+            <span>✉️</span>
+            <span>문자·알림톡 발송</span>
+        </button>
+        <button type="button" class="mob-tab-btn" data-mobtarget="templates">
+            <span>📑</span>
+            <span id="mobTplTabLabel">상용구 관리</span>
+        </button>
+        <button type="button" class="mob-tab-btn" data-mobtarget="ledger">
+            <span>📋</span>
+            <span id="mobLedgerTabLabel">공용 발송내역</span>
+        </button>
+    </nav>
+
+    <!-- =====================================================================
+         모달 1: ⚙️ 서버·솔라피 연결 설정 & 카카오 알림톡 템플릿 복사기 (3탭)
+         ===================================================================== -->
+    <div id="settingsModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h2 id="settingsModalTitle">⚙️ 서버·솔라피 연결 설정 및 알림톡 원고 센터</h2>
+                <button type="button" class="modal-close" data-closemodal="settingsModal">✕</button>
+            </div>
+
+            <div class="modal-tabs" role="tablist">
+                <button type="button" class="modal-tab-btn active" data-stab="tabConn">① 구글시트·솔라피 연동</button>
+                <button type="button" class="modal-tab-btn" data-stab="tabKakaoCopy">② 카카오 알림톡 100% 승인 원고 복사기</button>
+                <button type="button" class="modal-tab-btn" data-stab="tabPcGuide">③ 회사 PC 바탕화면 고정 & 5분 가이드</button>
+            </div>
+
+            <!-- 탭 1: 구글 Apps Script & 솔라피 설정 -->
+            <div id="tabConn" class="modal-body">
+                <div class="guide-card">
+                    <strong>🔒 안심 보안 설계 (API Key 브라우저 유출 0%)</strong>
+                    <div class="form-hint">
+                        입력하신 솔라피 API Secret은 브라우저나 GitHub에 절대 저장되지 않고 구글 클라우드 서버 금고(<code>ScriptProperties</code>)에만 암호화 보관됩니다.
+                        이미 설정이 완료된 뒤 다른 직원 PC에서 접속할 때는 <strong>[웹앱 URL + 사내 PIN]</strong> 2가지만 입력하고 <strong>[연결 및 동기화]</strong>만 누르면 즉시 모든 설정이 공유됩니다!
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="cfgScriptUrl">1. Google Apps Script 웹앱 URL</label>
+                    <input type="url" id="cfgScriptUrl" class="field-input" placeholder="https://script.google.com/macros/s/.../exec">
+                    <span class="form-hint">구글 시트 → 확장 프로그램 → Apps Script 배포 후 발급된 웹앱 주소를 붙여넣으세요.</span>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="cfgPin">2. 사내 공용 PIN 비밀번호 (필수)</label>
+                        <input type="password" id="cfgPin" class="field-input" placeholder="사내 직원 공용 PIN (4자리 이상)">
+                        <span class="form-hint">최초 미설정 서버일 경우 입력하신 번호가 최초 PIN으로 자동 등록됩니다.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="cfgNewPin">PIN 비밀번호 변경 (변경 시에만 입력)</label>
+                        <input type="password" id="cfgNewPin" class="field-input" placeholder="기존 PIN 유지 시 비워두세요">
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" id="btnConnectSyncOnly" class="btn-sm primary" style="height:40px; padding:0 16px;">
+                        🔌 직원 PC 빠른 연결 & 동기화 (URL + PIN만 확인)
+                    </button>
+                    <button type="button" id="btnCheckBalanceModal" class="btn-sm" style="height:40px; padding:0 14px;">
+                        💰 솔라피 잔액 조회 테스트
+                    </button>
+                </div>
+
+                <hr style="border:none; border-top:1px solid var(--border-color); width:100%; margin:4px 0;">
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="cfgSenderPhone">3. 회사 고정 발신번호 (솔라피 인증 번호)</label>
+                        <input type="tel" id="cfgSenderPhone" class="field-input" value="053-267-3973" placeholder="053-267-3973">
+                    </div>
+                    <div class="form-group">
+                        <label for="cfgPfId">4. 카카오 비즈니스 채널 PFID (알림톡 사용 시)</label>
+                        <input type="text" id="cfgPfId" class="field-input" placeholder="예: KA01PF... (솔라피 채널 연동 ID)">
+                    </div>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="cfgSolapiKey">5. 솔라피 API Key <span id="cfgKeyMaskLabel" style="color:var(--green-ok);"></span></label>
+                        <input type="text" id="cfgSolapiKey" class="field-input" placeholder="새로 등록·변경 시에만 입력 (예: NCS...)">
+                    </div>
+                    <div class="form-group">
+                        <label for="cfgSolapiSecret">6. 솔라피 API Secret</label>
+                        <input type="password" id="cfgSolapiSecret" class="field-input" placeholder="새로 등록·변경 시에만 입력">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px;">
+                    <button type="button" class="btn-sm" data-closemodal="settingsModal" style="height:42px; padding:0 16px;">닫기</button>
+                    <button type="button" id="btnSaveServerConfig" class="btn-sm primary" style="height:42px; padding:0 20px; font-size:var(--fs-base);">
+                        💾 서버 금고에 설정 안전하게 저장
+                    </button>
+                </div>
+            </div>
+
+            <!-- 탭 2: 카카오 알림톡 검수 100% 통과용 표준 템플릿 3종 복사기 -->
+            <div id="tabKakaoCopy" class="modal-body" style="display:none;">
+                <div class="guide-card" style="border-color:#eab308; background:rgba(254,229,0,0.14);">
+                    <strong>💡 카카오 알림톡 검수 100% 한 번에 통과하는 핵심 팁</strong>
+                    <div class="form-hint" style="color:var(--text-main);">
+                        1) 아래 3종 원고는 광고·할인 문구를 완전히 배제한 <strong>100% 정보성 표준 원고</strong>입니다. 솔라피 알림톡 템플릿 등록 화면에 그대로 복사해 붙여넣으세요.<br>
+                        2) 송장 배송조회 버튼처럼 주소가 바뀌는 <strong>웹링크(WL)</strong>는 반드시 앞에 <code>https://</code>가 고정된 <code>https://#{배송조회주소}</code> 형태로 넣어야 카카오 검수를 통과합니다!
+                    </div>
+                </div>
+                <div id="kakaoApproveCardsContainer" style="display:flex; flex-direction:column; gap:14px;"></div>
+            </div>
+
+            <!-- 탭 3: 회사 컴퓨터 바탕화면 아이콘 고정 & 5분 초기 세팅 요약 -->
+            <div id="tabPcGuide" class="modal-body" style="display:none;">
+                <div class="guide-card">
+                    <strong>💻 1. 회사 모든 컴퓨터 바탕화면·작업표시줄에 전용 프로그램으로 깔기</strong>
+                    <div style="font-size:var(--fs-sm); color:var(--text-sub); line-height:1.6;">
+                        1) 크롬(Chrome) 또는 엣지(Edge) 브라우저로 이 페이지를 엽니다.<br>
+                        2) 상단 노란색 <strong>[💻 PC 바탕화면 앱 설치]</strong> 버튼(또는 브라우저 주소창 오른쪽 끝 <strong>[앱 설치 📥]</strong> 아이콘)을 클릭합니다.<br>
+                        3) 바탕화면과 하단 작업표시줄에 <strong>「주누문자센터」</strong> 아이콘이 생성되며, 카카오톡 PC버전처럼 깔끔한 단독 창으로 실행됩니다!
+                    </div>
+                    <div>
+                        <button type="button" id="btnTriggerInstallInModal" class="btn-sm primary" style="height:38px; padding:0 16px;">
+                            💻 지금 PC 바탕화면 앱 설치 실행하기
+                        </button>
+                    </div>
+                </div>
+
+                <div class="guide-card">
+                    <strong>⚡ 2. 대표님 최초 5분 연결 요약 (딱 한 번만 하시면 끝!)</strong>
+                    <div style="font-size:var(--fs-sm); color:var(--text-sub); line-height:1.65;">
+                        <strong>① 구글 시트 생성</strong>: 새 구글 스프레드시트(<code>주누디자인_문자알림톡센터</code>) 만들기 → 상단 <code>확장 프로그램 → Apps Script</code> 클릭<br>
+                        <strong>② 백엔드 붙여넣기</strong>: <code>C:\gemininew\joonoo_sms\apps_script\Code.gs</code> 전체 코드 붙여넣기 → <code>배포 → 새 배포 → 웹 앱 (액세스: 모든 사용자)</code> 배포 후 URL 복사<br>
+                        <strong>③ 솔라피 발신번호 인증</strong>: <code>solapi.com</code>에서 회사 대표번호 <code>053-267-3973</code> 등록 후 API Key & Secret 복사<br>
+                        <strong>④ 원클릭 연동</strong>: 이 설정창 [① 구글시트·솔라피 연동] 탭에 붙여넣고 저장하면 <code>발송내역</code>·<code>공용상용구</code> 시트 2개와 기본 상용구 7종이 자동으로 만들어집니다!<br>
+                        <strong>⑤ 전 직원 공유</strong>: 이정민 실장님·이혜수 주임님 PC에서는 <strong>웹앱 URL + 사내 PIN</strong>만 입력하면 즉시 동기화됩니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         모달 2: 공용 상용구 추가 / 수정 모달
+         ===================================================================== -->
+    <div id="tplEditModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tplEditModalTitle">
+        <div class="modal-box narrow">
+            <div class="modal-head">
+                <h2 id="tplEditModalTitle">📑 공용 상용구 등록 / 수정</h2>
+                <button type="button" class="modal-close" data-closemodal="tplEditModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editTplId">
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="editTplCategory">카테고리</label>
+                        <select id="editTplCategory" class="field-select">
+                            <option value="상담·안내">상담·안내</option>
+                            <option value="배송·출고">배송·출고</option>
+                            <option value="시안·교정">시안·교정</option>
+                            <option value="결제·입금">결제·입금</option>
+                            <option value="방문·수령">방문·수령</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTplMode">기본 발송 모드</label>
+                        <select id="editTplMode" class="field-select">
+                            <option value="SMS">✉️ 회사번호 문자 (SMS/LMS)</option>
+                            <option value="ATA">🟡 카카오 알림톡 우선</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editTplTitle">상용구 제목 (직원 보관함 표시용)</label>
+                    <input type="text" id="editTplTitle" class="field-input" placeholder="예: 📦 택배 출고 및 송장 안내">
+                </div>
+
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="editTplSubject">장문 LMS 문자 제목 (선택)</label>
+                        <input type="text" id="editTplSubject" class="field-input" placeholder="예: [주누디자인] 출고 안내">
+                    </div>
+                    <div class="form-group">
+                        <label for="editTplSolapiId">카카오 알림톡 템플릿 코드 (승인 후 입력)</label>
+                        <input type="text" id="editTplSolapiId" class="field-input" placeholder="예: KA01TP... (없으면 비워두세요)">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editTplBody">메시지 본문 (자동 치환 변수 클릭 삽입 가능)</label>
+                    <div class="quick-snippets" style="margin-bottom:4px;">
+                        <button type="button" class="snip-btn" data-tplvar="#{고객명}">+#{고객명}</button>
+                        <button type="button" class="snip-btn" data-tplvar="#{택배사}">+#{택배사}</button>
+                        <button type="button" class="snip-btn" data-tplvar="#{송장번호}">+#{송장번호}</button>
+                        <button type="button" class="snip-btn" data-tplvar="https://#{배송조회주소}">+배송조회링크</button>
+                        <button type="button" class="snip-btn" data-tplvar="https://pf.kakao.com/_xhlXFj/chat">+카톡상담창</button>
+                    </div>
+                    <textarea id="editTplBody" class="msg-textarea" style="min-height:170px;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="editTplBtnUrl">알림톡 대표 웹링크 버튼 이름 / URL (선택)</label>
+                    <div class="form-row-2">
+                        <input type="text" id="editTplBtnName" class="field-input" placeholder="버튼명 (예: 카카오톡 상담창 열기)">
+                        <input type="text" id="editTplBtnUrl" class="field-input" placeholder="https://pf.kakao.com/_xhlXFj/chat">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn-sm" data-closemodal="tplEditModal" style="height:40px; padding:0 16px;">취소</button>
+                    <button type="button" id="btnSaveTplSubmit" class="btn-sm primary" style="height:40px; padding:0 20px;">💾 공용 상용구 저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         모달 3: 발송내역 상세 보기 & 재불러오기 모달
+         ===================================================================== -->
+    <div id="ledgerDetailModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="ledgerDetailTitle">
+        <div class="modal-box narrow">
+            <div class="modal-head">
+                <h2 id="ledgerDetailTitle">📋 발송내역 상세 정보</h2>
+                <button type="button" class="modal-close" data-closemodal="ledgerDetailModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="ledgerDetailMeta" class="guide-card" style="gap:6px; font-size:var(--fs-sm);"></div>
+                <pre id="ledgerDetailBody" class="code-pre"></pre>
+                <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn-sm" data-closemodal="ledgerDetailModal" style="height:40px; padding:0 16px;">닫기</button>
+                    <button type="button" id="btnReuseLedgerRecord" class="btn-sm primary" style="height:40px; padding:0 18px;">
+                        📲 이 고객번호·내용 편집창으로 불러오기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 알림 컨테이너 -->
+    <div id="toastContainer" class="toast-wrap" aria-live="polite"></div>
+
+    <!-- =====================================================================
+         메인 애플리케이션 스크립트 (순수 Vanilla JS · 무결점 XSS 방어)
+         ===================================================================== -->
+    <script>
+    (function () {
+        'use strict';
+
+        /* -----------------------------------------------------------------
+           1. 주누디자인 고정 상수 및 택배사 직통 URL 매핑
+           ----------------------------------------------------------------- */
+        const COMPANY = {
+            name: '주누디자인',
+            defaultSenderDisplay: '053-267-3973',
+            defaultSenderDigits: '0532673973',
+            kakaoChatUrl: 'https://pf.kakao.com/_xhlXFj/chat',
+            kakaoHomeUrl: 'https://pf.kakao.com/_xhlXFj',
+            mallUrl: 'https://joonoo.co.kr',
+            bankAccount: '농협 351-1052-3914-03 (예금주: 전현수)',
+            address: '대구광역시 달서구 구마로39길 38',
+            defaultStaff: ['전현수 대표', '이정민 실장', '이혜수 주임', '주누디자인(공용)']
+        };
+
+        const COURIER_URLS = {
+            '한진택배': 'https://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2={송장번호}',
+            'CJ대한통운': 'https://trace.cjlogistics.com/next/tracking.html?wblNo={송장번호}',
+            '로젠택배': 'https://www.ilogen.com/web/personal/trace/{송장번호}',
+            '우체국택배': 'https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1={송장번호}',
+            '롯데택배': 'https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo={송장번호}',
+            '경동택배': 'https://kdexp.com/service/delivery/etc/delivery.do?barcode={송장번호}',
+            '대신택배': 'https://www.ds3211.co.kr/freight/internalFreightSearch.ht?billno={송장번호}'
+        };
+
+        const DEFAULT_TEMPLATES = [
+            {
+                id: 'tpl_kakao_chat',
+                category: '상담·안내',
+                title: '🟡 카카오톡 1:1 상담창 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 카톡 상담창 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 인쇄·디자인 전문 주누디자인입니다.\n' +
+                    '문의 주셔서 감사합니다. 인쇄 원고·로고·사진 전달 및 시안 상담은 아래 공식 카카오톡 상담창으로 말씀 남겨주시면 순차적으로 안내해 드리겠습니다.\n\n' +
+                    '▶ 카톡 1:1 상담창 바로가기\n' +
+                    'https://pf.kakao.com/_xhlXFj/chat\n\n' +
+                    '▶ 공식 쇼핑몰: https://joonoo.co.kr\n' +
+                    '☎ 고객센터: 053-267-3973',
+                template_id: '',
+                buttons_info: JSON.stringify([
+                    { name: '카카오톡 상담창 열기', type: 'WL', url_mobile: 'https://pf.kakao.com/_xhlXFj/chat', url_pc: 'https://pf.kakao.com/_xhlXFj/chat' },
+                    { name: '채널 추가', type: 'AC' }
+                ])
+            },
+            {
+                id: 'tpl_shipping_track',
+                category: '배송·출고',
+                title: '📦 택배 출고 및 송장 배송조회 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 인쇄물 출고 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '주문하신 인쇄물이 제작 완료되어 오늘 출고되었습니다.\n\n' +
+                    '■ 택배사: #{택배사}\n' +
+                    '■ 송장번호: #{송장번호}\n\n' +
+                    '▶ 실시간 배송조회 바로가기\n' +
+                    'https://#{배송조회주소}\n\n' +
+                    '받으실 때까지 안전하게 배송하겠습니다. 감사합니다.\n' +
+                    '☎ 문의: 053-267-3973',
+                template_id: '',
+                buttons_info: JSON.stringify([
+                    { name: '실시간 배송조회', type: 'WL', url_mobile: 'https://#{배송조회주소}', url_pc: 'https://#{배송조회주소}' },
+                    { name: '카카오톡 문의하기', type: 'WL', url_mobile: 'https://pf.kakao.com/_xhlXFj/chat', url_pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ])
+            },
+            {
+                id: 'tpl_proof_check',
+                category: '시안·교정',
+                title: '🎨 인쇄 시안 확인 요청 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 인쇄 시안 확인 요청',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '요청하신 디자인 시안 작업이 완료되어 안내드립니다.\n\n' +
+                    '오탈자·연락처·수량 등을 확인해 주신 뒤, 아래 카카오톡 상담창으로 [인쇄 진행 확정] 또는 [수정 요청사항]을 회신해 주세요.\n' +
+                    '(※ 확정 회신 후 인쇄가 진행되며, 인쇄 시작 후에는 수정이 어렵습니다.)\n\n' +
+                    '▶ 시안 확인 및 카톡 회신하기\n' +
+                    'https://pf.kakao.com/_xhlXFj/chat\n' +
+                    '☎ 고객센터: 053-267-3973',
+                template_id: '',
+                buttons_info: JSON.stringify([
+                    { name: '시안 확인 및 카톡 회신', type: 'WL', url_mobile: 'https://pf.kakao.com/_xhlXFj/chat', url_pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ])
+            },
+            {
+                id: 'tpl_bank_account',
+                category: '결제·입금',
+                title: '💳 입금계좌 및 세금계산서 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 입금계좌 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '요청하신 입금계좌 안내드립니다.\n\n' +
+                    '■ 입금은행: 농협 351-1052-3914-03\n' +
+                    '■ 예금주: 전현수 (주누디자인)\n\n' +
+                    '입금 후 카카오톡 상담창으로 입금자명(세금계산서 발행 시 사업자등록증 사본)을 보내주시면 빠르게 확인 도와드리겠습니다.\n' +
+                    '▶ 카톡 상담창: https://pf.kakao.com/_xhlXFj/chat',
+                template_id: '',
+                buttons_info: JSON.stringify([
+                    { name: '사업자등록증 카톡 전송', type: 'WL', url_mobile: 'https://pf.kakao.com/_xhlXFj/chat', url_pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ])
+            },
+            {
+                id: 'tpl_visit_pickup',
+                category: '방문·수령',
+                title: '🏢 방문수령 및 사업장 주소 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 방문수령 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '주문하신 인쇄물 제작이 완료되어 방문수령 가능합니다.\n\n' +
+                    '■ 사업장 주소: 대구광역시 달서구 구마로39길 38\n' +
+                    '■ 대표번호: 053-267-3973\n\n' +
+                    '방문 전 미리 연락 주시면 바로 수령하실 수 있도록 준비해 두겠습니다. 감사합니다!',
+                template_id: '',
+                buttons_info: '[]'
+            },
+            {
+                id: 'tpl_file_upload',
+                category: '상담·안내',
+                title: '📎 로고·인쇄 원본파일 접수 안내',
+                mode: 'SMS',
+                subject: '[주누디자인] 원본파일 접수 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '보유하신 로고(AI 일러스트 원본)나 고화질 사진, 인쇄 원고를 아래 카카오톡 상담창으로 보내주시면 담당 디자이너가 확인 후 바로 안내드리겠습니다.\n\n' +
+                    '▶ 카톡으로 파일 보내기\n' +
+                    'https://pf.kakao.com/_xhlXFj/chat\n' +
+                    '▶ 공식몰: https://joonoo.co.kr\n' +
+                    '☎ 053-267-3973',
+                template_id: '',
+                buttons_info: JSON.stringify([
+                    { name: '카톡으로 파일 보내기', type: 'WL', url_mobile: 'https://pf.kakao.com/_xhlXFj/chat', url_pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ])
+            },
+            {
+                id: 'tpl_short_sms',
+                category: '상담·안내',
+                title: '⚡ 통화중·부재중 초간단 단문(SMS 90B 이하)',
+                mode: 'SMS',
+                subject: '',
+                body: '[주누디자인] 통화중이었습니다. 카톡상담: https://pf.kakao.com/_xhlXFj/chat',
+                template_id: '',
+                buttons_info: '[]'
+            }
+        ];
+
+        const KAKAO_APPROVAL_SPECS = [
+            {
+                tplIdRef: 'tpl_kakao_chat',
+                badge: '템플릿 ① · 상담안내',
+                name: '주누디자인 상담창 연결 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 인쇄·디자인 전문 주누디자인입니다.\n' +
+                    '문의 주셔서 감사합니다. 인쇄 원고·로고·사진 전달 및 시안 상담은 아래 공식 카카오톡 상담창으로 말씀 남겨주시면 순차적으로 안내해 드리겠습니다.\n\n' +
+                    '▶ 카톡 1:1 상담창 바로가기\n' +
+                    'https://pf.kakao.com/_xhlXFj/chat\n\n' +
+                    '▶ 공식 쇼핑몰: https://joonoo.co.kr\n' +
+                    '☎ 고객센터: 053-267-3973',
+                buttons: [
+                    { type: 'WL (웹링크)', name: '카카오톡 상담창 열기', mobile: 'https://pf.kakao.com/_xhlXFj/chat', pc: 'https://pf.kakao.com/_xhlXFj/chat' },
+                    { type: 'AC (채널추가)', name: '채널 추가', mobile: '(입력란 없음)', pc: '(입력란 없음)' }
+                ]
+            },
+            {
+                tplIdRef: 'tpl_shipping_track',
+                badge: '템플릿 ② · 출고·송장안내',
+                name: '주누디자인 상품 출고 및 송장 안내',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '주문하신 인쇄물이 제작 완료되어 오늘 출고되었습니다.\n\n' +
+                    '■ 택배사: #{택배사}\n' +
+                    '■ 송장번호: #{송장번호}\n\n' +
+                    '▶ 실시간 배송조회 바로가기\n' +
+                    'https://#{배송조회주소}\n\n' +
+                    '받으실 때까지 안전하게 배송하겠습니다. 감사합니다.\n' +
+                    '☎ 문의: 053-267-3973',
+                buttons: [
+                    { type: 'WL (웹링크)', name: '실시간 배송조회', mobile: 'https://#{배송조회주소}', pc: 'https://#{배송조회주소}' },
+                    { type: 'WL (웹링크)', name: '카카오톡 문의하기', mobile: 'https://pf.kakao.com/_xhlXFj/chat', pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ]
+            },
+            {
+                tplIdRef: 'tpl_proof_check',
+                badge: '템플릿 ③ · 시안확인요청',
+                name: '주누디자인 인쇄 시안 확인 요청',
+                body:
+                    '안녕하세요, #{고객명}님! 주누디자인입니다.\n' +
+                    '요청하신 디자인 시안 작업이 완료되어 안내드립니다.\n\n' +
+                    '오탈자·연락처·수량 등을 확인해 주신 뒤, 아래 카카오톡 상담창으로 [인쇄 진행 확정] 또는 [수정 요청사항]을 회신해 주세요.\n' +
+                    '(※ 확정 회신 후 인쇄가 진행되며, 인쇄 시작 후에는 수정이 어렵습니다.)\n\n' +
+                    '▶ 시안 확인 및 카톡 회신하기\n' +
+                    'https://pf.kakao.com/_xhlXFj/chat\n' +
+                    '☎ 고객센터: 053-267-3973',
+                buttons: [
+                    { type: 'WL (웹링크)', name: '시안 확인 및 카톡 회신', mobile: 'https://pf.kakao.com/_xhlXFj/chat', pc: 'https://pf.kakao.com/_xhlXFj/chat' }
+                ]
+            }
+        ];
+
+        /* -----------------------------------------------------------------
+           2. 로컬 스토리지 안전 헬퍼 & 유틸리티 (XSS 원천 차단)
+           ----------------------------------------------------------------- */
+        const LS_KEYS = {
+            theme: 'joonoo_sms_v1_theme',
+            fontsize: 'joonoo_sms_v1_fontsize',
+            myStaff: 'joonoo_sms_v1_my_staff',
+            customStaff: 'joonoo_sms_v1_custom_staff',
+            scriptUrl: 'joonoo_sms_v1_script_url',
+            pin: 'joonoo_sms_v1_pin',
+            localTemplates: 'joonoo_sms_v1_local_templates',
+            localHistory: 'joonoo_sms_v1_local_history',
+            demoSeeded: 'joonoo_sms_v1_demo_seeded'
+        };
+
+        function lsGet(key, fallback) {
+            try {
+                const v = localStorage.getItem(key);
+                return v !== null ? v : fallback;
+            } catch (_) {
+                return fallback;
+            }
+        }
+
+        function lsSet(key, val) {
+            try {
+                localStorage.setItem(key, val);
+            } catch (_) {}
+        }
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function digitsOnly(str) {
+            return String(str || '').replace(/[^0-9]/g, '');
+        }
+
+        function formatPhone(raw) {
+            const d = digitsOnly(raw).slice(0, 11);
+            if (!d) return '';
+            if (d.startsWith('02')) {
+                if (d.length <= 2) return d;
+                if (d.length <= 5) return d.slice(0, 2) + '-' + d.slice(2);
+                if (d.length <= 9) return d.slice(0, 2) + '-' + d.slice(2, 5) + '-' + d.slice(5);
+                return d.slice(0, 2) + '-' + d.slice(2, 6) + '-' + d.slice(6, 10);
+            }
+            if (d.length <= 3) return d;
+            if (d.length <= 7) return d.slice(0, 3) + '-' + d.slice(3);
+            if (d.length <= 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+            return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7, 11);
+        }
+
+        function kstNowParts() {
+            const fmt = new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Seoul',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+            const full = fmt.format(new Date()); // "YYYY-MM-DD HH:MM:SS"
+            return {
+                full: full,
+                date: full.slice(0, 10),
+                hm: full.slice(11, 16)
+            };
+        }
+
+        /**
+         * 한국 통신사 표준 EUC-KR 바이트 계산 (ASCII 1B, 한글·한자·특수문자 2B)
+         */
+        function calcEucKrBytes(text) {
+            const normalized = String(text || '').replace(/\r\n/g, '\n');
+            let bytes = 0;
+            let hasEmoji = false;
+            for (const ch of normalized) {
+                const code = ch.codePointAt(0);
+                if (code <= 0x7F) {
+                    bytes += 1;
+                } else if (code > 0xFFFF) {
+                    bytes += 2;
+                    hasEmoji = true;
+                } else {
+                    bytes += 2;
+                }
+            }
+            return { bytes, hasEmoji };
+        }
+
+        function showToast(msg, isError) {
+            const wrap = document.getElementById('toastContainer');
+            const el = document.createElement('div');
+            el.className = 'toast' + (isError ? ' err' : '');
+            el.textContent = msg;
+            wrap.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transition = 'opacity 0.25s';
+                setTimeout(() => el.remove(), 260);
+            }, 3400);
+        }
+
+        async function copyToClipboard(text, label) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast((label || '내용') + ' 복사 완료!');
+            } catch (_) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                showToast((label || '내용') + ' 복사 완료!');
+            }
+        }
+
+        /* -----------------------------------------------------------------
+           3. 애플리케이션 상태(State) 초기화
+           ----------------------------------------------------------------- */
+        const state = {
+            connected: false,
+            hasSolapiKey: false,
+            maskedApiKey: '',
+            senderPhone: COMPANY.defaultSenderDisplay,
+            pfId: '',
+            balance: null,
+            point: null,
+            scriptUrl: lsGet(LS_KEYS.scriptUrl, '').trim(),
+            pin: lsGet(LS_KEYS.pin, '').trim(),
+
+            staffList: [...COMPANY.defaultStaff],
+            currentStaff: lsGet(LS_KEYS.myStaff, '이정민 실장'),
+
+            templates: [],
+            selectedTemplateId: 'tpl_kakao_chat',
+            tplCategoryFilter: 'ALL',
+            tplSearchQuery: '',
+
+            sendMode: 'SMS', // 'SMS' | 'ATA'
+            isBodyManuallyEdited: false,
+
+            history: [],
+            ledgerFilter: 'ALL',
+            ledgerSearchQuery: '',
+            activeDetailRecord: null,
+
+            sending: false,
+            lastClientSendKey: '',
+            lastClientSendTime: 0,
+            deferredInstallPrompt: null
+        };
+
+        function loadInitialLocalData() {
+            // 커스텀 직원 복원
+            try {
+                const extra = JSON.parse(lsGet(LS_KEYS.customStaff, '[]'));
+                if (Array.isArray(extra)) {
+                    extra.forEach((n) => {
+                        const clean = String(n || '').trim();
+                        if (clean && !state.staffList.includes(clean)) {
+                            state.staffList.push(clean);
+                        }
+                    });
+                }
+            } catch (_) {}
+
+            if (!state.staffList.includes(state.currentStaff)) {
+                state.currentStaff = state.staffList[0];
+            }
+
+            // 로컬 상용구 복원
+            try {
+                const savedTpls = JSON.parse(lsGet(LS_KEYS.localTemplates, 'null'));
+                if (Array.isArray(savedTpls) && savedTpls.length > 0) {
+                    state.templates = savedTpls;
+                } else {
+                    state.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+                    lsSet(LS_KEYS.localTemplates, JSON.stringify(state.templates));
+                }
+            } catch (_) {
+                state.templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+            }
+
+            // 로컬 발송내역 복원 (최초 실행 시 직관적 체험을 위한 오늘 예시 2건 시드)
+            try {
+                const savedHist = JSON.parse(lsGet(LS_KEYS.localHistory, 'null'));
+                if (Array.isArray(savedHist)) {
+                    state.history = savedHist;
+                } else if (!lsGet(LS_KEYS.demoSeeded, '')) {
+                    const today = kstNowParts().date;
+                    state.history = [
+                        {
+                            id: 'DEMO_1',
+                            sent_at: today + ' 14:10:00',
+                            staff: '이정민 실장',
+                            customer_name: '성서자동차정비',
+                            phone: '010-2673-3973',
+                            mode: 'SMS',
+                            template_title: '📦 택배 출고 및 송장 배송조회 안내',
+                            message_preview: '안녕하세요, 성서자동차정비님! 주누디자인입니다. 주문하신 인쇄물이 오늘 출고되었습니다. ■ 택배사: 한진택배 ■ 송장번호: 451289012345',
+                            tracking_info: '한진택배 451289012345',
+                            status: '체험예시(중복경고테스트용)',
+                            group_id: 'DEMO',
+                            is_demo: true
+                        },
+                        {
+                            id: 'DEMO_2',
+                            sent_at: today + ' 11:25:00',
+                            staff: '이혜수 주임',
+                            customer_name: '달서카페',
+                            phone: '010-9876-1234',
+                            mode: 'ATA',
+                            template_title: '🟡 카카오톡 1:1 상담창 안내',
+                            message_preview: '안녕하세요, 달서카페님! 인쇄·디자인 전문 주누디자인입니다. 아래 공식 카카오톡 상담창으로 말씀 남겨주시면 안내드리겠습니다.',
+                            tracking_info: '',
+                            status: '체험예시',
+                            group_id: 'DEMO',
+                            is_demo: true
+                        }
+                    ];
+                    lsSet(LS_KEYS.demoSeeded, '1');
+                    lsSet(LS_KEYS.localHistory, JSON.stringify(state.history));
+                }
+            } catch (_) {
+                state.history = [];
+            }
+        }
+
+        /* -----------------------------------------------------------------
+           4. 택배 조회 링크 & 템플릿 치환 엔진
+           ----------------------------------------------------------------- */
+        function buildTrackingLinks() {
+            const courier = document.getElementById('courierSelect').value || '한진택배';
+            const rawWaybill = document.getElementById('waybillInput').value.trim();
+            const cleanWaybill = rawWaybill.replace(/[^0-9a-zA-Z]/g, '');
+            const pattern = COURIER_URLS[courier] || COURIER_URLS['한진택배'];
+            const sampleNo = cleanWaybill || '송장번호미입력';
+            const fullUrl = pattern.replace('{송장번호}', encodeURIComponent(sampleNo));
+            const pathWithoutHttps = fullUrl.replace(/^https?:\/\//i, '');
+
+            return {
+                courier,
+                cleanWaybill,
+                hasWaybill: Boolean(cleanWaybill),
+                fullUrl,
+                pathWithoutHttps
+            };
+        }
+
+        function getCurrentVariablesMap() {
+            const rawName = document.getElementById('customerNameInput').value.trim();
+            const cleanCustomerName = rawName ? rawName.replace(/님$/, '') : '고객';
+            const trk = buildTrackingLinks();
+
+            return {
+                '#{고객명}': cleanCustomerName,
+                '#{택배사}': trk.courier,
+                '#{송장번호}': trk.cleanWaybill || '(송장번호 입력 대기)',
+                '#{배송조회주소}': trk.pathWithoutHttps,
+                '#{배송조회링크}': trk.fullUrl
+            };
+        }
+
+        function resolveTemplateText(rawBody) {
+            const vars = getCurrentVariablesMap();
+            let resolved = String(rawBody || '');
+            Object.keys(vars).forEach((k) => {
+                resolved = resolved.split(k).join(vars[k]);
+            });
+            return resolved;
+        }
+
+        function getSelectedTemplate() {
+            return state.templates.find((t) => t.id === state.selectedTemplateId) || null;
+        }
+
+        function parseButtonsInfo(rawJson) {
+            try {
+                const arr = JSON.parse(rawJson || '[]');
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) {
+                return [];
+            }
+        }
+
+        /* -----------------------------------------------------------------
+           5. UI 렌더링 함수들 (상용구, 담당자, 중복경고, 휴대폰 미리보기, 발송대장)
+           ----------------------------------------------------------------- */
+        function renderHeaderStatus() {
+            const badge = document.getElementById('connStatusBadge');
+            const senderSpan = document.getElementById('headerSenderSpan');
+            const balSpan = document.getElementById('headerBalanceSpan');
+            const simChk = document.getElementById('chkTestSimulation');
+            const simLabel = document.getElementById('simToggleText');
+
+            senderSpan.textContent = '발신: ' + state.senderPhone;
+            document.getElementById('tabModeSmsTitle').textContent = '✉️ 회사번호 문자 (' + state.senderPhone + ')';
+
+            if (state.connected && state.hasSolapiKey) {
+                badge.className = 'conn-badge live';
+                badge.textContent = '🟢 실시간 서버·솔라피 연동중';
+                const balStr = state.balance != null ? state.balance.toLocaleString('ko-KR') + '원' : '조회중';
+                const ptStr = state.point ? ' (+P ' + state.point.toLocaleString('ko-KR') + ')' : '';
+                balSpan.textContent = '솔라피 잔액: ' + balStr + ptStr;
+                simLabel.textContent = '🧪 테스트 발송 (체크 해제 시 실제 발송)';
+            } else if (state.connected && !state.hasSolapiKey) {
+                badge.className = 'conn-badge demo';
+                badge.textContent = '🔵 구글시트 공유중 (솔라피 미등록 · 과금0원)';
+                balSpan.textContent = '솔라피 키 등록 전';
+                simChk.checked = true;
+                simLabel.textContent = '🧪 체험 모드 (솔라피 연결 전 과금 0원)';
+            } else {
+                badge.className = 'conn-badge demo';
+                badge.textContent = '🟡 즉시 체험 모드 (과금 0원 · 서버 연결 전)';
+                balSpan.textContent = '잔액: 체험모드';
+                simChk.checked = true;
+                simLabel.textContent = '🧪 과금 0원 로컬 체험 발송';
+            }
+
+            updateMainSendButtonLabel();
+        }
+
+        function renderStaffBar() {
+            const container = document.getElementById('staffBarContainer');
+            container.innerHTML = '';
+            state.staffList.forEach((name) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'staff-chip' + (state.currentStaff === name ? ' active' : '');
+
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = '👤 ' + name;
+                btn.appendChild(labelSpan);
+
+                if (!COMPANY.defaultStaff.includes(name)) {
+                    const delSpan = document.createElement('span');
+                    delSpan.className = 'del-staff';
+                    delSpan.textContent = '✕';
+                    delSpan.title = '추가한 담당자 삭제';
+                    delSpan.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        removeCustomStaff(name);
+                    });
+                    btn.appendChild(delSpan);
+                }
+
+                btn.addEventListener('click', () => {
+                    state.currentStaff = name;
+                    lsSet(LS_KEYS.myStaff, name);
+                    renderStaffBar();
+                    renderLedgerList();
+                });
+                container.appendChild(btn);
+            });
+        }
+
+        function removeCustomStaff(name) {
+            state.staffList = state.staffList.filter((s) => s !== name);
+            const customOnly = state.staffList.filter((s) => !COMPANY.defaultStaff.includes(s));
+            lsSet(LS_KEYS.customStaff, JSON.stringify(customOnly));
+            if (state.currentStaff === name) {
+                state.currentStaff = state.staffList[0];
+                lsSet(LS_KEYS.myStaff, state.currentStaff);
+            }
+            renderStaffBar();
+            renderLedgerList();
+        }
+
+        function renderTemplateList() {
+            const container = document.getElementById('tplListContainer');
+            const q = state.tplSearchQuery.toLowerCase();
+            const filtered = state.templates.filter((t) => {
+                if (state.tplCategoryFilter !== 'ALL' && t.category !== state.tplCategoryFilter) return false;
+                if (!q) return true;
+                return (
+                    t.title.toLowerCase().includes(q) ||
+                    t.body.toLowerCase().includes(q) ||
+                    t.category.toLowerCase().includes(q)
+                );
+            });
+
+            document.getElementById('mobTplTabLabel').textContent = '상용구 (' + state.templates.length + ')';
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">일치하는 상용구가 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map((t) => {
+                const isSel = t.id === state.selectedTemplateId;
+                const hasAtaId = Boolean(String(t.template_id || '').trim());
+                return `
+                    <div class="tpl-card ${isSel ? 'selected' : ''}" data-tplid="${escapeHtml(t.id)}">
+                        <div class="tpl-card-top">
+                            <div class="tpl-badges">
+                                <span class="mini-badge">${escapeHtml(t.category)}</span>
+                                ${hasAtaId
+                                    ? '<span class="mini-badge ata">🟡 알림톡연동</span>'
+                                    : '<span class="mini-badge">✉️ 문자·알림톡겸용</span>'}
+                            </div>
+                            <div class="tpl-actions">
+                                <button type="button" class="icon-btn" data-edittpl="${escapeHtml(t.id)}" title="상용구 수정">✏️</button>
+                                <button type="button" class="icon-btn" data-deltpl="${escapeHtml(t.id)}" title="상용구 삭제">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="tpl-card-title">${escapeHtml(t.title)}</div>
+                        <div class="tpl-card-preview">${escapeHtml(t.body)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function applyTemplateToComposer(tplId, switchMobileToCompose) {
+            const tpl = state.templates.find((t) => t.id === tplId);
+            if (!tpl) return;
+
+            state.selectedTemplateId = tpl.id;
+            state.isBodyManuallyEdited = false;
+
+            document.getElementById('msgSubjectInput').value = tpl.subject || '';
+            document.getElementById('msgBodyTextarea').value = resolveTemplateText(tpl.body);
+
+            // 배송·출고 템플릿이거나 송장 변수가 있으면 송장 도우미 자동 펼침
+            const needsShipping = tpl.category === '배송·출고' || tpl.body.includes('#{송장번호}') || tpl.body.includes('#{배송조회주소}');
+            setShippingHelperOpen(needsShipping);
+
+            if (tpl.mode === 'ATA') {
+                setSendMode('ATA');
+            }
+
+            renderTemplateList();
+            updateEditorAndPreview();
+
+            if (switchMobileToCompose && window.innerWidth < 1100) {
+                switchMobileTab('compose');
+                showToast('상용구가 발송창에 적용되었습니다.');
+            }
+        }
+
+        function setShippingHelperOpen(open) {
+            const box = document.getElementById('shippingHelperBox');
+            const arrow = document.getElementById('shippingToggleArrow');
+            if (open) {
+                box.classList.add('open');
+                arrow.textContent = '▲ 접기';
+            } else {
+                box.classList.remove('open');
+                arrow.textContent = '▼ 펼치기';
+            }
+        }
+
+        function setSendMode(mode) {
+            state.sendMode = mode === 'ATA' ? 'ATA' : 'SMS';
+            const tabSms = document.getElementById('tabModeSms');
+            const tabAta = document.getElementById('tabModeAta');
+            const lmsWrap = document.getElementById('lmsSubjectWrap');
+            const ataBar = document.getElementById('ataNoticeBar');
+            const textarea = document.getElementById('msgBodyTextarea');
+
+            if (state.sendMode === 'ATA') {
+                tabSms.className = 'mode-tab';
+                tabSms.setAttribute('aria-selected', 'false');
+                tabAta.className = 'mode-tab active-ata';
+                tabAta.setAttribute('aria-selected', 'true');
+                lmsWrap.style.display = 'none';
+                ataBar.classList.add('show');
+                textarea.readOnly = true;
+
+                // 알림톡은 승인된 템플릿 원문 + 변수 치환만 허용되므로 즉시 원문 기준으로 갱신
+                const tpl = getSelectedTemplate();
+                if (tpl) {
+                    state.isBodyManuallyEdited = false;
+                    textarea.value = resolveTemplateText(tpl.body);
+                }
+            } else {
+                tabSms.className = 'mode-tab active-sms';
+                tabSms.setAttribute('aria-selected', 'true');
+                tabAta.className = 'mode-tab';
+                tabAta.setAttribute('aria-selected', 'false');
+                lmsWrap.style.display = 'block';
+                ataBar.classList.remove('show');
+                textarea.readOnly = false;
+            }
+
+            updateEditorAndPreview();
+            updateMainSendButtonLabel();
+        }
+
+        function updateMainSendButtonLabel() {
+            const btn = document.getElementById('btnSendMain');
+            const sim = document.getElementById('chkTestSimulation').checked;
+            if (state.sendMode === 'ATA') {
+                btn.className = 'btn-send-cta ata-cta';
+                btn.textContent = sim
+                    ? '🧪 카카오 알림톡 체험 발송 (과금 0원 · Ctrl+Enter)'
+                    : '🟡 카카오 알림톡 즉시 발송 (Ctrl + Enter)';
+            } else {
+                btn.className = 'btn-send-cta';
+                btn.textContent = sim
+                    ? '🧪 회사번호(' + state.senderPhone + ') 체험 발송 (과금 0원 · Ctrl+Enter)'
+                    : '🚀 회사번호(' + state.senderPhone + ')로 즉시 발송 (Ctrl + Enter)';
+            }
+        }
+
+        function checkDuplicatePhoneWarning() {
+            const banner = document.getElementById('dupWarningBanner');
+            const textSpan = document.getElementById('dupWarningText');
+            const inputDigits = digitsOnly(document.getElementById('customerPhoneInput').value);
+
+            if (inputDigits.length < 9) {
+                banner.classList.remove('show');
+                banner.dataset.matchId = '';
+                return null;
+            }
+
+            const todayDate = kstNowParts().date;
+            const todayMatches = state.history.filter((r) => {
+                const rDigits = digitsOnly(r.phone);
+                const rDate = String(r.sent_at || '').slice(0, 10);
+                return rDigits === inputDigits && rDate === todayDate;
+            });
+
+            if (todayMatches.length === 0) {
+                banner.classList.remove('show');
+                banner.dataset.matchId = '';
+                return null;
+            }
+
+            const latest = todayMatches[0];
+            const hm = String(latest.sent_at || '').slice(11, 16) || '오늘';
+            textSpan.textContent =
+                `⚠️ 오늘 ${hm}에 [${latest.staff}]님이 이미 발송한 번호입니다! ` +
+                `(${latest.template_title || '문자'} · 오늘 총 ${todayMatches.length}회)`;
+            banner.dataset.matchId = latest.id;
+            banner.classList.add('show');
+            return latest;
+        }
+
+        function linkifyEscapedText(rawText) {
+            const escaped = escapeHtml(rawText);
+            return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<span class="preview-link">$1</span>');
+        }
+
+        function updateEditorAndPreview() {
+            // 송장 링크 미리보기 바 업데이트
+            const trk = buildTrackingLinks();
+            const trkPreviewEl = document.getElementById('trackingUrlPreview');
+            if (trk.hasWaybill) {
+                trkPreviewEl.textContent = `[${trk.courier}] ${trk.fullUrl}`;
+            } else {
+                trkPreviewEl.textContent = `[${trk.courier}] 송장번호 입력 시 직통 배송조회 링크가 본문과 알림톡 버튼에 자동 반영됩니다.`;
+            }
+
+            // 수동 편집 전이면 템플릿 변수 실시간 재치환
+            const tpl = getSelectedTemplate();
+            const textarea = document.getElementById('msgBodyTextarea');
+            if (tpl && (!state.isBodyManuallyEdited || state.sendMode === 'ATA')) {
+                textarea.value = resolveTemplateText(tpl.body);
+            }
+
+            const bodyText = textarea.value;
+            const subjectText = document.getElementById('msgSubjectInput').value.trim();
+            const { bytes, hasEmoji } = calcEucKrBytes(bodyText);
+            const badge = document.getElementById('byteCounterBadge');
+
+            if (state.sendMode === 'ATA') {
+                badge.className = 'byte-badge ata';
+                badge.textContent = '🟡 카카오 알림톡 (건당 약 13원 · 버튼 포함 · 실패 시 문자대체)';
+
+                const statusEl = document.getElementById('ataTplIdStatus');
+                const code = tpl ? String(tpl.template_id || '').trim() : '';
+                if (code) {
+                    statusEl.textContent = `✅ 승인 템플릿 코드 연동됨 (${code}) — 본문 변수가 자동 치환됩니다.`;
+                } else {
+                    statusEl.textContent = 'ℹ️ 아직 알림톡 템플릿 코드 미입력 (과금 0원 체험 발송 가능 · 실발송은 코드 등록 후 가능)';
+                }
+            } else {
+                const emojiWarn = hasEmoji ? ' · ⚠️ 이모지 포함(물음표 변환 주의)' : '';
+                if (bytes <= 90) {
+                    badge.className = 'byte-badge sms';
+                    badge.textContent = `단문 SMS · ${bytes} / 90 Byte (약 18원)${emojiWarn}`;
+                } else if (bytes <= 2000) {
+                    badge.className = 'byte-badge lms';
+                    badge.textContent = `장문 LMS · ${bytes.toLocaleString()} / 2,000 Byte (약 45원)${emojiWarn}`;
+                } else {
+                    badge.className = 'byte-badge over';
+                    badge.textContent = `🚨 용량 초과 · ${bytes.toLocaleString()} / 2,000 Byte (2,000B 이하로 줄여주세요)`;
+                }
+            }
+
+            // 실시간 고객 스마트폰 목업 렌더링
+            const mockupHead = document.getElementById('mockupHeaderBar');
+            const mockupScreen = document.getElementById('mockupScreen');
+            const nowHm = kstNowParts().hm;
+
+            if (state.sendMode === 'ATA') {
+                mockupHead.innerHTML = `<span>← 주누디자인 ✓</span><span style="font-size:11px; color:#854d0e; font-weight:800;">카카오톡</span>`;
+                mockupScreen.className = 'phone-screen kakao-bg';
+
+                const rawButtons = tpl ? parseButtonsInfo(tpl.buttons_info) : [];
+                const vars = getCurrentVariablesMap();
+                const btnsHtml = rawButtons.map((b) => {
+                    let href = String(b.url_mobile || b.url_pc || COMPANY.kakaoHomeUrl);
+                    Object.keys(vars).forEach((k) => {
+                        href = href.split(k).join(vars[k]);
+                    });
+                    if (!/^https?:\/\//i.test(href)) {
+                        href = COMPANY.kakaoHomeUrl;
+                    }
+                    return `<a class="kakao-btn-item" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(b.name || '바로가기')}</a>`;
+                }).join('');
+
+                mockupScreen.innerHTML = `
+                    <div style="font-size:11px; color:#1e293b; font-weight:700; margin-bottom:2px;">주누디자인</div>
+                    <div class="kakao-card">
+                        <div class="kakao-card-head">
+                            <span>알림톡 도착</span>
+                            <span style="font-weight:900;">kakao</span>
+                        </div>
+                        <div class="kakao-card-body">${linkifyEscapedText(bodyText || '(내용 없음)')}</div>
+                        ${btnsHtml ? `<div class="kakao-card-btns">${btnsHtml}</div>` : ''}
+                    </div>
+                    <div style="font-size:10.5px; color:#334155; text-align:right;">${escapeHtml(nowHm)}</div>
+                `;
+            } else {
+                mockupHead.innerHTML = `<span>← 주누디자인 (${escapeHtml(state.senderPhone)})</span><span style="font-size:11px; color:#64748b;">${bytes <= 90 ? 'SMS' : 'LMS'}</span>`;
+                mockupScreen.className = 'phone-screen sms-bg';
+
+                const showSubj = bytes > 90 && subjectText;
+                mockupScreen.innerHTML = `
+                    <div class="sms-bubble">${showSubj ? `<div class="sms-subject-line">${escapeHtml(subjectText)}</div>` : ''}${linkifyEscapedText(bodyText || '메시지 내용을 입력하시면 고객 휴대폰에 보이는 그대로 미리보기가 표시됩니다.')}</div>
+                    <div style="font-size:10.5px; color:#64748b; text-align:right;">${escapeHtml(nowHm)}</div>
+                `;
+            }
+        }
+
+        function renderLedgerList() {
+            const container = document.getElementById('ledgerListContainer');
+            const todayDate = kstNowParts().date;
+
+            // 오늘 통계 계산
+            let todayTotal = 0;
+            let todaySms = 0;
+            let todayAta = 0;
+            let hasDemoRows = false;
+
+            state.history.forEach((r) => {
+                if (r.is_demo || r.group_id === 'DEMO') hasDemoRows = true;
+                if (String(r.sent_at || '').slice(0, 10) === todayDate) {
+                    todayTotal++;
+                    if (r.mode === 'ATA') todayAta++;
+                    else todaySms++;
+                }
+            });
+
+            document.getElementById('kpiTodayTotal').textContent = todayTotal + '건';
+            document.getElementById('kpiTodaySplit').textContent = `문자 ${todaySms} · 알림톡 ${todayAta}`;
+            document.getElementById('mobLedgerTabLabel').textContent = `발송내역 (${todayTotal})`;
+            document.getElementById('btnClearDemoRows').style.display = hasDemoRows ? 'inline-flex' : 'none';
+
+            const q = state.ledgerSearchQuery.toLowerCase();
+            const qDigits = digitsOnly(state.ledgerSearchQuery);
+
+            const filtered = state.history.filter((r) => {
+                if (state.ledgerFilter === 'TODAY' && String(r.sent_at || '').slice(0, 10) !== todayDate) return false;
+                if (state.ledgerFilter === 'MINE' && r.staff !== state.currentStaff) return false;
+                if (!q) return true;
+
+                const hay = [
+                    r.customer_name,
+                    r.phone,
+                    r.staff,
+                    r.template_title,
+                    r.message_preview,
+                    r.tracking_info
+                ].join(' ').toLowerCase();
+
+                if (hay.includes(q)) return true;
+                if (qDigits && digitsOnly(r.phone).includes(qDigits)) return true;
+                return false;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">조건에 맞는 발송내역이 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map((r) => {
+                const isToday = String(r.sent_at || '').slice(0, 10) === todayDate;
+                const timeDisplay = isToday
+                    ? '오늘 ' + String(r.sent_at || '').slice(11, 16)
+                    : String(r.sent_at || '').slice(5, 16);
+                const isSim = String(r.status || '').includes('테스트') || String(r.status || '').includes('체험');
+                const modeLabel = r.mode === 'ATA' ? '🟡 알림톡' : '✉️ 문자';
+                const whoName = r.customer_name ? `${r.customer_name} · ${r.phone}` : r.phone;
+
+                return `
+                    <div class="ledger-card" data-recordid="${escapeHtml(r.id)}">
+                        <div class="ledger-row-top">
+                            <div style="display:flex; gap:5px; align-items:center;">
+                                <span class="staff-tag">${escapeHtml(r.staff || '공용')}</span>
+                                <span style="font-weight:700; color:var(--text-muted);">${modeLabel}</span>
+                            </div>
+                            <span style="color:var(--text-muted); font-weight:600;">${escapeHtml(timeDisplay)}</span>
+                        </div>
+                        <div class="ledger-who">
+                            <span>${escapeHtml(whoName)}</span>
+                            <span class="status-tag ${isSim ? 'sim' : 'ok'}">${escapeHtml(r.status || '완료')}</span>
+                        </div>
+                        <div class="ledger-preview">${escapeHtml(r.message_preview || '')}</div>
+                        ${r.tracking_info ? `<div class="ledger-track">🚚 ${escapeHtml(r.tracking_info)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /* -----------------------------------------------------------------
+           6. 클라우드 백엔드(Google Apps Script) 통신 레이어
+           ----------------------------------------------------------------- */
+        async function callBackend(payload) {
+            const url = state.scriptUrl.trim();
+            if (!url) {
+                throw new Error('Google Apps Script 웹앱 URL이 아직 입력되지 않았습니다.');
+            }
+            const res = await fetch(url, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            return json;
+        }
+
+        function applyServerSyncPayload(res) {
+            state.connected = true;
+            if (res.config) {
+                state.hasSolapiKey = Boolean(res.config.hasSolapiKey);
+                state.maskedApiKey = res.config.maskedApiKey || '';
+                state.senderPhone = res.config.senderPhone || COMPANY.defaultSenderDisplay;
+                state.pfId = res.config.pfId || '';
+            }
+            if (res.balanceInfo && res.balanceInfo.ok && res.balanceInfo.hasSolapiKey) {
+                state.balance = res.balanceInfo.balance;
+                state.point = res.balanceInfo.point;
+            }
+            if (Array.isArray(res.templates) && res.templates.length > 0) {
+                state.templates = res.templates;
+                lsSet(LS_KEYS.localTemplates, JSON.stringify(state.templates));
+            }
+            if (Array.isArray(res.history)) {
+                state.history = res.history;
+                lsSet(LS_KEYS.localHistory, JSON.stringify(state.history));
+            }
+
+            // 솔라피 키가 정상 등록되어 있으면 실발송 가능 상태로 테스트 체크 자동 해제
+            if (state.connected && state.hasSolapiKey) {
+                document.getElementById('chkTestSimulation').checked = false;
+            }
+
+            renderHeaderStatus();
+            renderTemplateList();
+            renderLedgerList();
+            checkDuplicatePhoneWarning();
+            updateEditorAndPreview();
+        }
+
+        async function syncWithServer(silent) {
+            if (!state.scriptUrl || !state.pin) {
+                if (!silent) openSettingsModal('tabConn');
+                return;
+            }
+            try {
+                const res = await callBackend({
+                    action: 'sync',
+                    pin: state.pin,
+                    includeBalance: true
+                });
+                if (!res.ok) {
+                    if (!silent) showToast(res.message || '동기화 실패', true);
+                    return;
+                }
+                applyServerSyncPayload(res);
+                if (!silent) showToast('전 직원 공용 발송대장 및 잔액 동기화 완료!');
+            } catch (err) {
+                if (!silent) showToast('서버 통신 오류: 웹앱 URL과 인터넷 연결을 확인해 주세요.', true);
+            }
+        }
+
+        /* -----------------------------------------------------------------
+           7. 문자 / 알림톡 발송 실행 (실제 발송 & 로컬 체험 모드 통합)
+           ----------------------------------------------------------------- */
+        async function executeSend() {
+            if (state.sending) return;
+
+            const rawPhone = document.getElementById('customerPhoneInput').value;
+            const phoneDigits = digitsOnly(rawPhone);
+            if (!/^01[016789]\d{7,8}$/.test(phoneDigits) && !/^0\d{8,10}$/.test(phoneDigits)) {
+                showToast('수신 고객 전화번호를 정확히 입력해 주세요. (예: 010-1234-5678)', true);
+                document.getElementById('customerPhoneInput').focus();
+                return;
+            }
+
+            const bodyText = document.getElementById('msgBodyTextarea').value.trim();
+            if (!bodyText) {
+                showToast('발송할 메시지 내용을 입력해 주세요.', true);
+                document.getElementById('msgBodyTextarea').focus();
+                return;
+            }
+
+            const { bytes } = calcEucKrBytes(bodyText);
+            if (state.sendMode === 'SMS' && bytes > 2000) {
+                showToast('문자 내용이 2,000 Byte를 초과했습니다. 내용을 조금만 줄여주세요.', true);
+                return;
+            }
+
+            const isSimulation = document.getElementById('chkTestSimulation').checked;
+            const tpl = getSelectedTemplate();
+
+            // 실제 알림톡 발송 시 사전 검증
+            if (!isSimulation && state.sendMode === 'ATA') {
+                if (!state.pfId) {
+                    showToast('카카오 채널 PFID가 아직 설정되지 않았습니다. [서버·솔라피 설정]을 확인하거나 [회사번호 문자]로 발송해 주세요.', true);
+                    return;
+                }
+                if (!tpl || !String(tpl.template_id || '').trim()) {
+                    showToast('선택한 상용구에 카카오 승인 템플릿 코드(templateId)가 없습니다. [회사번호 문자] 탭으로 발송하거나 코드를 입력해 주세요.', true);
+                    return;
+                }
+            }
+
+            // 클라이언트 10초 더블클릭 중복 방지
+            const clientDedupKey = `${phoneDigits}|${state.sendMode}|${bodyText}`;
+            if (state.lastClientSendKey === clientDedupKey && (Date.now() - state.lastClientSendTime) < 10000) {
+                showToast('동일 고객·동일 내용으로 방금 발송되어 10초 내 중복 발송을 차단했습니다.', true);
+                return;
+            }
+
+            // 오늘 이미 다른 직원/내가 보낸 번호일 경우 1회 안전 확인
+            const dupMatch = checkDuplicatePhoneWarning();
+            if (dupMatch) {
+                const hm = String(dupMatch.sent_at || '').slice(11, 16) || '오늘';
+                const ok = window.confirm(
+                    `⚠️ 중복 발송 확인\n\n오늘 ${hm}에 [${dupMatch.staff}]님이 이미 이 번호(${formatPhone(phoneDigits)})로 발송한 내역이 있습니다.\n\n그래도 한 번 더 발송하시겠습니까?`
+                );
+                if (!ok) return;
+            }
+
+            const trk = buildTrackingLinks();
+            const trackingInfo = trk.hasWaybill ? `${trk.courier} ${trk.cleanWaybill}` : '';
+            const customerName = document.getElementById('customerNameInput').value.trim();
+            const subjectText = (state.sendMode === 'SMS' && bytes > 90)
+                ? document.getElementById('msgSubjectInput').value.trim()
+                : '';
+
+            const btn = document.getElementById('btnSendMain');
+            state.sending = true;
+            btn.disabled = true;
+            const prevBtnText = btn.textContent;
+            btn.textContent = '⏳ 발송 처리 중...';
+
+            try {
+                if (state.connected && state.scriptUrl && state.pin) {
+                    const res = await callBackend({
+                        action: 'send',
+                        pin: state.pin,
+                        staff: state.currentStaff,
+                        customerName: customerName,
+                        phone: phoneDigits,
+                        mode: state.sendMode,
+                        templateTitle: tpl ? tpl.title : (state.sendMode === 'ATA' ? '카카오 알림톡' : '회사번호 문자'),
+                        templateId: tpl ? String(tpl.template_id || '').trim() : '',
+                        variables: getCurrentVariablesMap(),
+                        disableSms: !document.getElementById('chkFallbackSms').checked,
+                        subject: subjectText,
+                        text: bodyText,
+                        messagePreview: bodyText,
+                        trackingInfo: trackingInfo,
+                        testMode: isSimulation
+                    });
+
+                    if (!res.ok) {
+                        showToast(res.message || '발송 실패', true);
+                        return;
+                    }
+
+                    state.lastClientSendKey = clientDedupKey;
+                    state.lastClientSendTime = Date.now();
+
+                    if (res.record) {
+                        state.history.unshift(res.record);
+                        lsSet(LS_KEYS.localHistory, JSON.stringify(state.history));
+                    }
+                    showToast(res.message || '발송 완료!');
+                } else {
+                    // 서버 미연결 로컬 즉시 체험 시뮬레이션
+                    const now = kstNowParts().full;
+                    const localRecord = {
+                        id: 'LOCAL_' + Date.now(),
+                        sent_at: now,
+                        staff: state.currentStaff,
+                        customer_name: customerName,
+                        phone: formatPhone(phoneDigits),
+                        mode: state.sendMode,
+                        template_title: tpl ? tpl.title : '직접 작성',
+                        message_preview: bodyText,
+                        tracking_info: trackingInfo,
+                        status: '로컬체험(과금0원)',
+                        group_id: 'LOCAL'
+                    };
+                    state.lastClientSendKey = clientDedupKey;
+                    state.lastClientSendTime = Date.now();
+                    state.history.unshift(localRecord);
+                    lsSet(LS_KEYS.localHistory, JSON.stringify(state.history));
+                    showToast('✅ [체험 발송 성공] 과금 0원으로 우측 공용 발송대장에 즉시 기록되었습니다!');
+                }
+
+                renderLedgerList();
+                checkDuplicatePhoneWarning();
+            } catch (err) {
+                showToast('발송 요청 중 통신 오류가 발생했습니다: ' + (err.message || err), true);
+            } finally {
+                state.sending = false;
+                btn.disabled = false;
+                btn.textContent = prevBtnText;
+                updateMainSendButtonLabel();
+            }
+        }
+
+        /* -----------------------------------------------------------------
+           8. 엑셀 CSV 다운로드 (UTF-8 BOM 적용으로 한글 깨짐 0%)
+           ----------------------------------------------------------------- */
+        function exportLedgerToCsv() {
+            if (state.history.length === 0) {
+                showToast('저장할 발송내역이 없습니다.', true);
+                return;
+            }
+            const headers = ['발송일시', '담당자', '고객명/상호', '전화번호', '방식', '상용구명', '송장정보', '상태', '메시지내용'];
+            const escCsv = (val) => {
+                let s = String(val == null ? '' : val).replace(/"/g, '""');
+                if (/^[=+\-@]/.test(s)) s = "'" + s;
+                return `"${s}"`;
+            };
+
+            const lines = [headers.map(escCsv).join(',')];
+            state.history.forEach((r) => {
+                lines.push([
+                    r.sent_at,
+                    r.staff,
+                    r.customer_name,
+                    r.phone,
+                    r.mode === 'ATA' ? '카카오알림톡' : '일반문자',
+                    r.template_title,
+                    r.tracking_info,
+                    r.status,
+                    r.message_preview
+                ].map(escCsv).join(','));
+            });
+
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `주누디자인_문자발송대장_${kstNowParts().date}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            showToast('엑셀 CSV 파일이 다운로드되었습니다.');
+        }
+
+        /* -----------------------------------------------------------------
+           9. 설정 모달 & 카카오 알림톡 3종 원클릭 복사기 렌더링
+           ----------------------------------------------------------------- */
+        function renderKakaoApproveCards() {
+            const box = document.getElementById('kakaoApproveCardsContainer');
+            box.innerHTML = KAKAO_APPROVAL_SPECS.map((spec, idx) => {
+                const rowsHtml = spec.buttons.map((b) => `
+                    <tr>
+                        <td><strong>${escapeHtml(b.type)}</strong></td>
+                        <td>${escapeHtml(b.name)}</td>
+                        <td>
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                                <span style="word-break:break-all;">${escapeHtml(b.mobile)}</span>
+                                ${b.mobile.startsWith('http') ? `<button type="button" class="btn-sm" data-copytext="${escapeHtml(b.mobile)}">복사</button>` : ''}
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                                <span style="word-break:break-all;">${escapeHtml(b.pc)}</span>
+                                ${b.pc.startsWith('http') ? `<button type="button" class="btn-sm" data-copytext="${escapeHtml(b.pc)}">복사</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+
+                return `
+                    <div class="guide-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <div>
+                                <span class="mini-badge ata">${escapeHtml(spec.badge)}</span>
+                                <strong style="margin-left:6px; font-size:var(--fs-base);">${escapeHtml(spec.name)}</strong>
+                            </div>
+                            <button type="button" class="btn-sm primary" data-copybodyidx="${idx}">📋 알림톡 본문 원클릭 복사</button>
+                        </div>
+                        <pre class="code-pre">${escapeHtml(spec.body)}</pre>
+                        <table class="btn-table">
+                            <thead>
+                                <tr>
+                                    <th>버튼 타입</th>
+                                    <th>버튼 이름</th>
+                                    <th>모바일 웹링크</th>
+                                    <th>PC 웹링크</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsHtml}</tbody>
+                        </table>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openSettingsModal(tabId) {
+            document.getElementById('cfgScriptUrl').value = state.scriptUrl;
+            document.getElementById('cfgPin').value = state.pin;
+            document.getElementById('cfgNewPin').value = '';
+            document.getElementById('cfgSenderPhone').value = state.senderPhone || COMPANY.defaultSenderDisplay;
+            document.getElementById('cfgPfId').value = state.pfId || '';
+            document.getElementById('cfgSolapiKey').value = '';
+            document.getElementById('cfgSolapiSecret').value = '';
+            document.getElementById('cfgKeyMaskLabel').textContent = state.maskedApiKey
+                ? `(현재 서버 등록됨: ${state.maskedApiKey})`
+                : '';
+
+            switchModalTab(tabId || 'tabConn');
+            document.getElementById('settingsModal').classList.add('open');
+        }
+
+        function switchModalTab(targetId) {
+            ['tabConn', 'tabKakaoCopy', 'tabPcGuide'].forEach((id) => {
+                document.getElementById(id).style.display = id === targetId ? 'flex' : 'none';
+            });
+            document.querySelectorAll('.modal-tab-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.stab === targetId);
+            });
+        }
+
+        function switchMobileTab(mobTarget) {
+            document.getElementById('mainWorkspace').dataset.mobtab = mobTarget;
+            document.querySelectorAll('.mob-tab-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.mobtarget === mobTarget);
+            });
+        }
+
+        /* -----------------------------------------------------------------
+           10. 상용구 추가 / 수정 / 삭제 핸들러
+           ----------------------------------------------------------------- */
+        function openTemplateModal(tpl) {
+            document.getElementById('tplEditModalTitle').textContent = tpl ? '📑 공용 상용구 수정' : '📑 새 공용 상용구 추가';
+            document.getElementById('editTplId').value = tpl ? tpl.id : '';
+            document.getElementById('editTplCategory').value = tpl ? tpl.category : '상담·안내';
+            document.getElementById('editTplMode').value = tpl ? tpl.mode : 'SMS';
+            document.getElementById('editTplTitle').value = tpl ? tpl.title : '';
+            document.getElementById('editTplSubject').value = tpl ? (tpl.subject || '') : '[주누디자인] 안내';
+            document.getElementById('editTplSolapiId').value = tpl ? (tpl.template_id || '') : '';
+            document.getElementById('editTplBody').value = tpl ? tpl.body : '';
+
+            const btns = tpl ? parseButtonsInfo(tpl.buttons_info) : [];
+            const firstWl = btns.find((b) => b.type === 'WL');
+            document.getElementById('editTplBtnName').value = firstWl ? (firstWl.name || '') : '';
+            document.getElementById('editTplBtnUrl').value = firstWl ? (firstWl.url_mobile || '') : '';
+
+            document.getElementById('tplEditModal').classList.add('open');
+        }
+
+        async function saveTemplateFromModal() {
+            const existingId = document.getElementById('editTplId').value.trim();
+            const category = document.getElementById('editTplCategory').value;
+            const mode = document.getElementById('editTplMode').value;
+            const title = document.getElementById('editTplTitle').value.trim();
+            const subject = document.getElementById('editTplSubject').value.trim();
+            const solapiId = document.getElementById('editTplSolapiId').value.trim();
+            const body = document.getElementById('editTplBody').value.trim();
+            const btnName = document.getElementById('editTplBtnName').value.trim();
+            const btnUrl = document.getElementById('editTplBtnUrl').value.trim();
+
+            if (!title || !body) {
+                showToast('상용구 제목과 본문을 모두 입력해 주세요.', true);
+                return;
+            }
+
+            let buttonsArr = [];
+            const prevTpl = existingId ? state.templates.find((t) => t.id === existingId) : null;
+            if (btnName && btnUrl) {
+                buttonsArr = [{ name: btnName, type: 'WL', url_mobile: btnUrl, url_pc: btnUrl }];
+            } else if (prevTpl && !btnName && !btnUrl) {
+                buttonsArr = parseButtonsInfo(prevTpl.buttons_info);
+            }
+
+            const tplObj = {
+                id: existingId || ('tpl_' + Date.now()),
+                category,
+                title,
+                mode,
+                subject,
+                body,
+                template_id: solapiId,
+                buttons_info: JSON.stringify(buttonsArr),
+                updated_by: state.currentStaff,
+                updated_at: kstNowParts().full
+            };
+
+            if (state.connected && state.scriptUrl && state.pin) {
+                try {
+                    const res = await callBackend({
+                        action: 'saveTemplate',
+                        pin: state.pin,
+                        staff: state.currentStaff,
+                        template: tplObj
+                    });
+                    if (!res.ok) {
+                        showToast(res.message || '상용구 저장 실패', true);
+                        return;
+                    }
+                    state.templates = res.templates || state.templates;
+                    lsSet(LS_KEYS.localTemplates, JSON.stringify(state.templates));
+                    showToast(res.message || '공용 상용구가 서버에 저장되었습니다.');
+                } catch (e) {
+                    showToast('서버 통신 실패로 저장하지 못했습니다.', true);
+                    return;
+                }
+            } else {
+                const idx = state.templates.findIndex((t) => t.id === tplObj.id);
+                if (idx >= 0) state.templates[idx] = tplObj;
+                else state.templates.push(tplObj);
+                lsSet(LS_KEYS.localTemplates, JSON.stringify(state.templates));
+                showToast('상용구가 저장되었습니다.');
+            }
+
+            document.getElementById('tplEditModal').classList.remove('open');
+            state.selectedTemplateId = tplObj.id;
+            applyTemplateToComposer(tplObj.id, false);
+        }
+
+        async function deleteTemplateById(tplId) {
+            const target = state.templates.find((t) => t.id === tplId);
+            if (!target) return;
+            if (!window.confirm(`[${target.title}]\n이 공용 상용구를 삭제하시겠습니까?`)) return;
+
+            if (state.connected && state.scriptUrl && state.pin) {
+                try {
+                    const res = await callBackend({
+                        action: 'deleteTemplate',
+                        pin: state.pin,
+                        id: tplId
+                    });
+                    if (!res.ok) {
+                        showToast(res.message || '삭제 실패', true);
+                        return;
+                    }
+                    state.templates = res.templates || [];
+                } catch (_) {
+                    showToast('서버 삭제 요청 실패', true);
+                    return;
+                }
+            } else {
+                state.templates = state.templates.filter((t) => t.id !== tplId);
+            }
+
+            lsSet(LS_KEYS.localTemplates, JSON.stringify(state.templates));
+            if (state.selectedTemplateId === tplId && state.templates.length > 0) {
+                state.selectedTemplateId = state.templates[0].id;
+            }
+            renderTemplateList();
+            showToast('상용구가 삭제되었습니다.');
+        }
+
+        /* -----------------------------------------------------------------
+           11. 테마 · 글자크기 · PWA 바탕화면 설치 · 이벤트 바인딩
+           ----------------------------------------------------------------- */
+        function initThemeAndFontSize() {
+            const savedTheme = lsGet(LS_KEYS.theme, 'light');
+            const savedFs = lsGet(LS_KEYS.fontsize, 'large');
+            setTheme(savedTheme);
+            setFontSize(savedFs);
+        }
+
+        function setTheme(theme) {
+            const clean = theme === 'dark' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', clean);
+            lsSet(LS_KEYS.theme, clean);
+            document.getElementById('btnThemeToggle').textContent = clean === 'dark' ? '☀️ 라이트' : '🌙 다크';
+        }
+
+        function setFontSize(fs) {
+            const valid = ['normal', 'large', 'xlarge'].includes(fs) ? fs : 'large';
+            document.documentElement.setAttribute('data-fontsize', valid);
+            lsSet(LS_KEYS.fontsize, valid);
+            document.querySelectorAll('[data-setfs]').forEach((b) => {
+                b.classList.toggle('active', b.dataset.setfs === valid);
+            });
+        }
+
+        async function triggerPwaInstall() {
+            if (state.deferredInstallPrompt) {
+                state.deferredInstallPrompt.prompt();
+                const choice = await state.deferredInstallPrompt.userChoice;
+                if (choice && choice.outcome === 'accepted') {
+                    showToast('바탕화면 앱 설치가 완료되었습니다!');
+                    state.deferredInstallPrompt = null;
+                }
+                return;
+            }
+            openSettingsModal('tabPcGuide');
+            showToast('브라우저 주소창 우측 끝 [앱 설치] 아이콘 또는 크롬 메뉴 → [전송, 저장, 공유 → 페이지를 앱으로 설치]를 눌러 고정하실 수 있습니다.');
+        }
+
+        function bindEvents() {
+            // PWA 설치 이벤트 캡처
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                state.deferredInstallPrompt = e;
+            });
+
+            document.getElementById('btnPwaInstall').addEventListener('click', triggerPwaInstall);
+            document.getElementById('btnTriggerInstallInModal').addEventListener('click', triggerPwaInstall);
+
+            // 글자 크기 & 테마
+            document.querySelectorAll('[data-setfs]').forEach((btn) => {
+                btn.addEventListener('click', () => setFontSize(btn.dataset.setfs));
+            });
+            document.getElementById('btnThemeToggle').addEventListener('click', () => {
+                const cur = document.documentElement.getAttribute('data-theme');
+                setTheme(cur === 'dark' ? 'light' : 'dark');
+            });
+
+            // 설정 모달 열기/닫기
+            document.getElementById('btnOpenSettings').addEventListener('click', () => openSettingsModal('tabConn'));
+            document.getElementById('connStatusBadge').addEventListener('click', () => openSettingsModal('tabConn'));
+            document.getElementById('btnOpenKakaoGuideTab').addEventListener('click', () => openSettingsModal('tabKakaoCopy'));
+
+            document.querySelectorAll('[data-closemodal]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    document.getElementById(btn.dataset.closemodal).classList.remove('open');
+                });
+            });
+            document.querySelectorAll('.modal-backdrop').forEach((bd) => {
+                bd.addEventListener('click', (e) => {
+                    if (e.target === bd) bd.classList.remove('open');
+                });
+            });
+            document.querySelectorAll('.modal-tab-btn').forEach((btn) => {
+                btn.addEventListener('click', () => switchModalTab(btn.dataset.stab));
+            });
+
+            // 모바일 하단 탭
+            document.querySelectorAll('.mob-tab-btn').forEach((btn) => {
+                btn.addEventListener('click', () => switchMobileTab(btn.dataset.mobtarget));
+            });
+
+            // 담당자 추가
+            document.getElementById('btnAddStaff').addEventListener('click', () => {
+                const name = window.prompt('추가할 사내 담당자 이름을 입력해 주세요 (예: 김디자이너):');
+                if (!name) return;
+                const clean = name.trim().slice(0, 20);
+                if (!clean) return;
+                if (!state.staffList.includes(clean)) {
+                    state.staffList.push(clean);
+                    const customOnly = state.staffList.filter((s) => !COMPANY.defaultStaff.includes(s));
+                    lsSet(LS_KEYS.customStaff, JSON.stringify(customOnly));
+                }
+                state.currentStaff = clean;
+                lsSet(LS_KEYS.myStaff, clean);
+                renderStaffBar();
+                showToast(`[${clean}] 담당자가 선택되었습니다.`);
+            });
+
+            // 고객 전화번호 자동 하이픈 + 중복 경고
+            const phoneInput = document.getElementById('customerPhoneInput');
+            phoneInput.addEventListener('input', () => {
+                phoneInput.value = formatPhone(phoneInput.value);
+                checkDuplicatePhoneWarning();
+            });
+
+            // 클립보드 전화번호 스마트 붙여넣기
+            document.getElementById('btnPastePhone').addEventListener('click', async () => {
+                try {
+                    const clip = (await navigator.clipboard.readText()).trim();
+                    const phoneMatch = clip.match(/01[016789][-\s.]?\d{3,4}[-\s.]?\d{4}|0\d{1,2}[-\s.]?\d{3,4}[-\s.]?\d{4}/);
+                    if (phoneMatch) {
+                        phoneInput.value = formatPhone(phoneMatch[0]);
+                        const leftoverName = clip.replace(phoneMatch[0], '').replace(/[,/()[\]:-]/g, ' ').trim();
+                        const nameEl = document.getElementById('customerNameInput');
+                        if (leftoverName && leftoverName.length <= 20 && !nameEl.value.trim()) {
+                            nameEl.value = leftoverName;
+                        }
+                        checkDuplicatePhoneWarning();
+                        updateEditorAndPreview();
+                        showToast('전화번호 붙여넣기 완료!');
+                    } else if (digitsOnly(clip).length >= 9) {
+                        phoneInput.value = formatPhone(clip);
+                        checkDuplicatePhoneWarning();
+                        showToast('전화번호 붙여넣기 완료!');
+                    } else {
+                        showToast('클립보드에서 전화번호 형식을 찾지 못했습니다.', true);
+                    }
+                } catch (_) {
+                    phoneInput.focus();
+                    showToast('입력칸에서 Ctrl + V를 눌러 붙여넣어 주세요.');
+                }
+            });
+
+            // 중복 경고 체험 버튼 & 입력 초기화
+            document.getElementById('btnTestDupDemo').addEventListener('click', () => {
+                const today = kstNowParts().date;
+                const todayRow = state.history.find((r) => String(r.sent_at || '').slice(0, 10) === today);
+                if (todayRow) {
+                    phoneInput.value = formatPhone(todayRow.phone);
+                    document.getElementById('customerNameInput').value = todayRow.customer_name || '성서자동차정비';
+                } else {
+                    const demoRec = {
+                        id: 'DEMO_DUP_' + Date.now(),
+                        sent_at: today + ' 14:10:00',
+                        staff: '이정민 실장',
+                        customer_name: '성서자동차정비',
+                        phone: '010-2673-3973',
+                        mode: 'SMS',
+                        template_title: '📦 택배 출고 및 송장 배송조회 안내',
+                        message_preview: '안녕하세요, 성서자동차정비님! 주문하신 인쇄물이 오늘 출고되었습니다.',
+                        tracking_info: '한진택배 451289012345',
+                        status: '체험예시',
+                        group_id: 'DEMO',
+                        is_demo: true
+                    };
+                    state.history.unshift(demoRec);
+                    renderLedgerList();
+                    phoneInput.value = '010-2673-3973';
+                    document.getElementById('customerNameInput').value = '성서자동차정비';
+                }
+                checkDuplicatePhoneWarning();
+                updateEditorAndPreview();
+                showToast('오늘 이미 발송한 고객번호 중복 경고 배너가 작동했습니다!');
+            });
+
+            document.getElementById('btnResetComposer').addEventListener('click', () => {
+                phoneInput.value = '';
+                document.getElementById('customerNameInput').value = '';
+                document.getElementById('waybillInput').value = '';
+                state.isBodyManuallyEdited = false;
+                checkDuplicatePhoneWarning();
+                updateEditorAndPreview();
+                phoneInput.focus();
+            });
+
+            document.getElementById('btnShowDupDetail').addEventListener('click', () => {
+                const matchId = document.getElementById('dupWarningBanner').dataset.matchId;
+                const rec = state.history.find((r) => r.id === matchId);
+                if (rec) openLedgerDetailModal(rec);
+            });
+
+            // 고객명 · 택배사 · 송장번호 실시간 반영
+            document.getElementById('customerNameInput').addEventListener('input', updateEditorAndPreview);
+            document.getElementById('courierSelect').addEventListener('change', updateEditorAndPreview);
+            document.getElementById('waybillInput').addEventListener('input', updateEditorAndPreview);
+
+            // 송장 도우미 토글 & 붙여넣기 & 테스트 열기
+            document.getElementById('btnToggleShipping').addEventListener('click', () => {
+                const isOpen = document.getElementById('shippingHelperBox').classList.contains('open');
+                setShippingHelperOpen(!isOpen);
+            });
+
+            document.getElementById('btnPasteWaybill').addEventListener('click', async () => {
+                try {
+                    const clip = (await navigator.clipboard.readText()).trim();
+                    const clean = clip.replace(/[^0-9a-zA-Z]/g, '');
+                    if (clean) {
+                        document.getElementById('waybillInput').value = clean;
+                        if (state.selectedTemplateId !== 'tpl_shipping_track') {
+                            applyTemplateToComposer('tpl_shipping_track', false);
+                        } else {
+                            updateEditorAndPreview();
+                        }
+                        showToast('송장번호 반영 및 배송조회 링크가 자동 완성되었습니다!');
+                    }
+                } catch (_) {
+                    document.getElementById('waybillInput').focus();
+                }
+            });
+
+            document.getElementById('btnOpenTrackingTest').addEventListener('click', () => {
+                const trk = buildTrackingLinks();
+                if (!trk.hasWaybill) {
+                    showToast('먼저 송장번호를 입력해 주세요.', true);
+                    document.getElementById('waybillInput').focus();
+                    return;
+                }
+                window.open(trk.fullUrl, '_blank', 'noopener,noreferrer');
+            });
+
+            document.getElementById('btnApplyShippingTpl').addEventListener('click', () => {
+                applyTemplateToComposer('tpl_shipping_track', false);
+            });
+
+            // 발송 모드 탭 전환
+            document.getElementById('tabModeSms').addEventListener('click', () => setSendMode('SMS'));
+            document.getElementById('tabModeAta').addEventListener('click', () => setSendMode('ATA'));
+            document.getElementById('chkTestSimulation').addEventListener('change', updateMainSendButtonLabel);
+
+            // 본문 편집 & 제목 편집 & 스니펫 삽입
+            const msgTextarea = document.getElementById('msgBodyTextarea');
+            msgTextarea.addEventListener('input', () => {
+                state.isBodyManuallyEdited = true;
+                updateEditorAndPreview();
+            });
+            document.getElementById('msgSubjectInput').addEventListener('input', updateEditorAndPreview);
+
+            document.querySelectorAll('[data-insert]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    if (state.sendMode === 'ATA') {
+                        setSendMode('SMS');
+                        showToast('자유 문구 삽입을 위해 [회사번호 문자] 모드로 전환되었습니다.');
+                    }
+                    const snippet = btn.dataset.insert;
+                    const start = msgTextarea.selectionStart || msgTextarea.value.length;
+                    const end = msgTextarea.selectionEnd || msgTextarea.value.length;
+                    const before = msgTextarea.value.slice(0, start);
+                    const after = msgTextarea.value.slice(end);
+                    const sep = before && !before.endsWith('\n') && !before.endsWith(' ') ? '\n' : '';
+                    msgTextarea.value = before + sep + snippet + after;
+                    state.isBodyManuallyEdited = true;
+                    updateEditorAndPreview();
+                    msgTextarea.focus();
+                });
+            });
+
+            document.getElementById('btnRestoreTemplate').addEventListener('click', () => {
+                state.isBodyManuallyEdited = false;
+                updateEditorAndPreview();
+                showToast('상용구 원문 및 최신 고객·송장 변수로 복원되었습니다.');
+            });
+
+            document.getElementById('btnEditCurrentTplCode').addEventListener('click', () => {
+                const tpl = getSelectedTemplate();
+                if (tpl) openTemplateModal(tpl);
+            });
+
+            // 발송 버튼 & Ctrl+Enter 단축키
+            document.getElementById('btnSendMain').addEventListener('click', executeSend);
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    const anyModalOpen = document.querySelector('.modal-backdrop.open');
+                    if (!anyModalOpen) {
+                        e.preventDefault();
+                        executeSend();
+                    }
+                }
+            });
+
+            // 좌측 상용구 검색 · 카테고리 · 카드 클릭(이벤트 위임)
+            document.getElementById('tplSearchInput').addEventListener('input', (e) => {
+                state.tplSearchQuery = e.target.value.trim();
+                renderTemplateList();
+            });
+
+            document.getElementById('tplCatPills').addEventListener('click', (e) => {
+                const pill = e.target.closest('[data-cat]');
+                if (!pill) return;
+                state.tplCategoryFilter = pill.dataset.cat;
+                document.querySelectorAll('#tplCatPills .cat-pill').forEach((p) => {
+                    p.classList.toggle('active', p === pill);
+                });
+                renderTemplateList();
+            });
+
+            document.getElementById('tplListContainer').addEventListener('click', (e) => {
+                const editBtn = e.target.closest('[data-edittpl]');
+                if (editBtn) {
+                    e.stopPropagation();
+                    const t = state.templates.find((x) => x.id === editBtn.dataset.edittpl);
+                    if (t) openTemplateModal(t);
+                    return;
+                }
+                const delBtn = e.target.closest('[data-deltpl]');
+                if (delBtn) {
+                    e.stopPropagation();
+                    deleteTemplateById(delBtn.dataset.deltpl);
+                    return;
+                }
+                const card = e.target.closest('[data-tplid]');
+                if (card) {
+                    applyTemplateToComposer(card.dataset.tplid, true);
+                }
+            });
+
+            document.getElementById('btnAddTemplate').addEventListener('click', () => openTemplateModal(null));
+            document.getElementById('btnSaveTplSubmit').addEventListener('click', saveTemplateFromModal);
+
+            document.querySelectorAll('[data-tplvar]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const ta = document.getElementById('editTplBody');
+                    const v = btn.dataset.tplvar;
+                    const s = ta.selectionStart || ta.value.length;
+                    const ePos = ta.selectionEnd || ta.value.length;
+                    ta.value = ta.value.slice(0, s) + v + ta.value.slice(ePos);
+                    ta.focus();
+                });
+            });
+
+            // 우측 공용 발송대장 이벤트
+            document.getElementById('btnSyncNow').addEventListener('click', () => syncWithServer(false));
+            document.getElementById('btnExportCsv').addEventListener('click', exportLedgerToCsv);
+
+            document.getElementById('ledgerSearchInput').addEventListener('input', (e) => {
+                state.ledgerSearchQuery = e.target.value.trim();
+                renderLedgerList();
+            });
+
+            document.getElementById('ledgerFilterPills').addEventListener('click', (e) => {
+                const pill = e.target.closest('[data-lfilter]');
+                if (!pill) return;
+                state.ledgerFilter = pill.dataset.lfilter;
+                document.querySelectorAll('#ledgerFilterPills .cat-pill').forEach((p) => {
+                    p.classList.toggle('active', p === pill);
+                });
+                renderLedgerList();
+            });
+
+            document.getElementById('btnClearDemoRows').addEventListener('click', () => {
+                state.history = state.history.filter((r) => !r.is_demo && r.group_id !== 'DEMO');
+                lsSet(LS_KEYS.localHistory, JSON.stringify(state.history));
+                renderLedgerList();
+                checkDuplicatePhoneWarning();
+                showToast('체험 예시 내역이 정리되었습니다.');
+            });
+
+            document.getElementById('ledgerListContainer').addEventListener('click', (e) => {
+                const card = e.target.closest('[data-recordid]');
+                if (!card) return;
+                const rec = state.history.find((r) => r.id === card.dataset.recordid);
+                if (rec) openLedgerDetailModal(rec);
+            });
+
+            document.getElementById('btnReuseLedgerRecord').addEventListener('click', () => {
+                const rec = state.activeDetailRecord;
+                if (!rec) return;
+                document.getElementById('customerPhoneInput').value = formatPhone(rec.phone);
+                document.getElementById('customerNameInput').value = rec.customer_name || '';
+                setSendMode(rec.mode === 'ATA' ? 'ATA' : 'SMS');
+                if (rec.mode !== 'ATA') {
+                    document.getElementById('msgBodyTextarea').value = rec.message_preview || '';
+                    state.isBodyManuallyEdited = true;
+                }
+                checkDuplicatePhoneWarning();
+                updateEditorAndPreview();
+                document.getElementById('ledgerDetailModal').classList.remove('open');
+                if (window.innerWidth < 1100) switchMobileTab('compose');
+                showToast('선택한 발송내역을 작성창으로 불러왔습니다.');
+            });
+
+            // 설정 모달: 연결 동기화 & 설정 저장 & 잔액 조회 & 원고 복사
+            document.getElementById('btnConnectSyncOnly').addEventListener('click', async () => {
+                const url = document.getElementById('cfgScriptUrl').value.trim();
+                const pin = document.getElementById('cfgPin').value.trim();
+                if (!url || !pin) {
+                    showToast('웹앱 URL과 사내 PIN을 모두 입력해 주세요.', true);
+                    return;
+                }
+                state.scriptUrl = url;
+                state.pin = pin;
+                try {
+                    const res = await callBackend({ action: 'init', pin: state.pin, includeBalance: true });
+                    if (!res.ok) {
+                        showToast(res.message || '연결 실패', true);
+                        return;
+                    }
+                    lsSet(LS_KEYS.scriptUrl, state.scriptUrl);
+                    lsSet(LS_KEYS.pin, state.pin);
+                    applyServerSyncPayload(res);
+                    document.getElementById('settingsModal').classList.remove('open');
+                    showToast('🎉 구글 시트 공용 서버와 성공적으로 연결되었습니다!');
+                } catch (err) {
+                    showToast('연결 실패: 웹앱 URL이 올바른지, 배포 권한이 [모든 사용자]인지 확인해 주세요.', true);
+                }
+            });
+
+            document.getElementById('btnSaveServerConfig').addEventListener('click', async () => {
+                const url = document.getElementById('cfgScriptUrl').value.trim();
+                const pin = document.getElementById('cfgPin').value.trim();
+                const newPin = document.getElementById('cfgNewPin').value.trim();
+                const senderPhone = document.getElementById('cfgSenderPhone').value.trim() || COMPANY.defaultSenderDisplay;
+                const pfId = document.getElementById('cfgPfId').value.trim();
+                const solapiApiKey = document.getElementById('cfgSolapiKey').value.trim();
+                const solapiApiSecret = document.getElementById('cfgSolapiSecret').value.trim();
+
+                if (!url) {
+                    showToast('1번 Google Apps Script 웹앱 URL을 먼저 입력해 주세요.', true);
+                    return;
+                }
+                if (!pin && !newPin) {
+                    showToast('2번 사내 공용 PIN 비밀번호(4자리 이상)를 입력해 주세요.', true);
+                    return;
+                }
+
+                state.scriptUrl = url;
+                try {
+                    const res = await callBackend({
+                        action: 'saveConfig',
+                        pin: pin,
+                        newPin: newPin,
+                        senderPhone: senderPhone,
+                        pfId: pfId,
+                        solapiApiKey: solapiApiKey,
+                        solapiApiSecret: solapiApiSecret
+                    });
+                    if (!res.ok) {
+                        showToast(res.message || '설정 저장 실패', true);
+                        return;
+                    }
+                    state.pin = newPin || pin;
+                    lsSet(LS_KEYS.scriptUrl, state.scriptUrl);
+                    lsSet(LS_KEYS.pin, state.pin);
+                    applyServerSyncPayload(res);
+                    document.getElementById('settingsModal').classList.remove('open');
+                    showToast('✅ 서버 보안 금고에 설정이 안전하게 저장되었습니다!');
+                } catch (err) {
+                    showToast('서버 저장 실패: 웹앱 URL과 배포 상태를 확인해 주세요.', true);
+                }
+            });
+
+            document.getElementById('btnCheckBalanceModal').addEventListener('click', async () => {
+                const url = document.getElementById('cfgScriptUrl').value.trim();
+                const pin = document.getElementById('cfgPin').value.trim();
+                if (!url || !pin) {
+                    showToast('웹앱 URL과 PIN을 입력한 뒤 조회해 주세요.', true);
+                    return;
+                }
+                state.scriptUrl = url;
+                state.pin = pin;
+                try {
+                    const res = await callBackend({ action: 'balance', pin: state.pin });
+                    if (!res.ok) {
+                        showToast(res.message || '잔액 조회 실패', true);
+                        return;
+                    }
+                    if (!res.hasSolapiKey) {
+                        showToast('아직 솔라피 API Key가 서버에 등록되지 않았습니다.');
+                        return;
+                    }
+                    state.balance = res.balance;
+                    state.point = res.point;
+                    renderHeaderStatus();
+                    showToast(`💰 솔라피 현재 잔액: ${Number(res.balance || 0).toLocaleString()}원 / 포인트: ${Number(res.point || 0).toLocaleString()}P`);
+                } catch (_) {
+                    showToast('잔액 조회 통신 실패', true);
+                }
+            });
+
+            document.getElementById('kakaoApproveCardsContainer').addEventListener('click', (e) => {
+                const bodyBtn = e.target.closest('[data-copybodyidx]');
+                if (bodyBtn) {
+                    const spec = KAKAO_APPROVAL_SPECS[Number(bodyBtn.dataset.copybodyidx)];
+                    if (spec) copyToClipboard(spec.body, `[${spec.name}] 본문`);
+                    return;
+                }
+                const txtBtn = e.target.closest('[data-copytext]');
+                if (txtBtn) {
+                    copyToClipboard(txtBtn.dataset.copytext, '버튼 링크 주소');
+                }
+            });
+
+            // 45초 주기 백그라운드 자동 동기화 (창이 활성화된 상태일 때만 가볍게 호출)
+            setInterval(() => {
+                if (document.visibilityState === 'visible' && state.connected && state.scriptUrl && state.pin) {
+                    syncWithServer(true);
+                }
+            }, 45000);
+        }
+
+        function openLedgerDetailModal(rec) {
+            state.activeDetailRecord = rec;
+            const meta = document.getElementById('ledgerDetailMeta');
+            meta.innerHTML = `
+                <div><strong>발송 일시:</strong> ${escapeHtml(rec.sent_at)}</div>
+                <div><strong>발송 담당자:</strong> ${escapeHtml(rec.staff)}</div>
+                <div><strong>수신 고객:</strong> ${escapeHtml(rec.customer_name || '(미입력)')} · <strong>${escapeHtml(rec.phone)}</strong></div>
+                <div><strong>발송 방식 / 상태:</strong> ${rec.mode === 'ATA' ? '🟡 카카오 알림톡' : '✉️ 회사번호 문자'} · ${escapeHtml(rec.status)}</div>
+                ${rec.tracking_info ? `<div><strong>송장 정보:</strong> ${escapeHtml(rec.tracking_info)}</div>` : ''}
+            `;
+            document.getElementById('ledgerDetailBody').textContent = rec.message_preview || '';
+            document.getElementById('ledgerDetailModal').classList.add('open');
+        }
+
+        /* -----------------------------------------------------------------
+           12. 부트스트랩 (즉시 0.01초 구동 + 서비스워커 등록)
+           ----------------------------------------------------------------- */
+        function initApp() {
+            initThemeAndFontSize();
+            loadInitialLocalData();
+            renderKakaoApproveCards();
+            renderStaffBar();
+            renderTemplateList();
+            applyTemplateToComposer(state.selectedTemplateId, false);
+            renderLedgerList();
+            renderHeaderStatus();
+            bindEvents();
+
+            // 저장된 웹앱 URL + PIN이 있으면 시작 즉시 자동 클라우드 동기화
+            if (state.scriptUrl && state.pin) {
+                syncWithServer(true);
+            }
+
+            // PWA Service Worker 등록
+            if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
+            }
+        }
+
+        initApp();
+    })();
+    </script>
+</body>
+</html>
