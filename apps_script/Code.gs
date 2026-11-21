@@ -906,6 +906,36 @@ function doPost(e) {
       }
     }
 
+    // 7-1. '배송데이터' 탭 1행 제목만 남기고 2행부터 전체 깨끗하게 비우기
+    if (action === "clearDeliveryAll") {
+      var lockAll = LockService.getScriptLock();
+      if (!lockAll.tryLock(25000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "다른 직원이 작업 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        var dSheetAll = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
+        if (String(dSheetAll.getName() || "").trim() !== DELIVERY_SHEET_NAME_) {
+          return jsonOut_({ ok: false, error: "SHEET_GUARD", message: "안전 보호: 대상 탭 이름이 '배송데이터'가 아니므로 비우기를 중단했습니다." });
+        }
+        var lastRowAll = dSheetAll.getLastRow();
+        var removedAll = 0;
+        if (lastRowAll > 1) {
+          removedAll = lastRowAll - 1;
+          var maxColAll = Math.max(3, dSheetAll.getLastColumn());
+          dSheetAll.getRange(2, 1, lastRowAll - 1, maxColAll).clearContent();
+        }
+        return jsonOut_({
+          ok: true,
+          action: "clearDeliveryAll",
+          removedCount: removedAll,
+          remainingCount: 0,
+          rows: []
+        });
+      } finally {
+        lockAll.releaseLock();
+      }
+    }
+
     // 8. 단건 및 다건 문자 통합 발송 (SMS / LMS 전용, Idempotency + LockService 이중 발송 완벽 방어)
     if (action === "send") {
       var requestId = String(data.requestId || "").trim();

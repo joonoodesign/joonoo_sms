@@ -1,4 +1,4 @@
-const CACHE_NAME = 'joonoo-sms-v2.3';
+const CACHE_NAME = 'joonoo-sms-v2.4';
 const ASSETS = [
   './',
   './index.html',
