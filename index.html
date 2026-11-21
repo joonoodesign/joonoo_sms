@@ -718,6 +718,8 @@
       var STORAGE_KEYS = {
         scriptUrl: 'jn_sms_v2_script_url',
         pin: 'jn_sms_v2_pin',
+        solapiKey: 'jn_sms_v2_solapi_key',
+        solapiSecret: 'jn_sms_v2_solapi_secret',
         theme: 'jn_sms_v2_theme',
         fontSize: 'jn_sms_v2_fontsize',
         localTemplates: 'jn_sms_v2_templates',
@@ -782,7 +784,10 @@
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
         pin: localStorage.getItem(STORAGE_KEYS.pin) || '',
+        solapiApiKey: localStorage.getItem(STORAGE_KEYS.solapiKey) || '',
+        solapiApiSecret: localStorage.getItem(STORAGE_KEYS.solapiSecret) || '',
         senderPhone: '053-267-3973',
+        senderDigits: '0532673973',
         hasSolapiKey: false,
         availableBalance: null,
         templates: loadLocalJson(STORAGE_KEYS.localTemplates, DEFAULT_TEMPLATES),
@@ -793,6 +798,99 @@
         currentPreset: localStorage.getItem(STORAGE_KEYS.deliveryPreset) || 'lms',
         deferredInstallPrompt: null,
         confirmCallback: null
+      };
+
+      var SolapiDirectClient = {
+        isReady: function () {
+          return Boolean(state.solapiApiKey && state.solapiApiSecret && window.crypto && window.crypto.subtle);
+        },
+        buildAuthHeader: async function (apiKey, apiSecret) {
+          var date = new Date().toISOString();
+          var salt = (window.crypto.randomUUID ? window.crypto.randomUUID().replace(/-/g, '') : (Date.now().toString(16) + Math.random().toString(16).slice(2)));
+          var enc = new TextEncoder();
+          var key = await window.crypto.subtle.importKey(
+            'raw',
+            enc.encode(apiSecret),
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+          );
+          var sigBuf = await window.crypto.subtle.sign('HMAC', key, enc.encode(date + salt));
+          var sigHex = Array.from(new Uint8Array(sigBuf)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+          return 'HMAC-SHA256 apiKey=' + apiKey + ', date=' + date + ', salt=' + salt + ', signature=' + sigHex;
+        },
+        fetchBalance: async function () {
+          var auth = await this.buildAuthHeader(state.solapiApiKey, state.solapiApiSecret);
+          var res = await fetch('https://api.solapi.com/cash/v1/balance', {
+            method: 'GET',
+            headers: { 'Authorization': auth }
+          });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.errorMessage || data.message || '잔액 조회 실패');
+          return Number(data.balance || 0) + Number(data.point || 0);
+        },
+        sendMany: async function (items) {
+          var auth = await this.buildAuthHeader(state.solapiApiKey, state.solapiApiSecret);
+          var sender = String(state.senderDigits || state.senderPhone || '0532673973').replace(/\D/g, '') || '0532673973';
+          var messages = items.map(function (it) {
+            var toDigits = String(it.phone || '').replace(/\D/g, '');
+            var byteLen = calcEucKrBytes(it.message);
+            return {
+              to: toDigits,
+              from: sender,
+              text: it.message,
+              type: byteLen <= 90 ? 'SMS' : 'LMS'
+            };
+          });
+          var res = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
+            method: 'POST',
+            headers: {
+              'Authorization': auth,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ messages: messages })
+          });
+          var parsed = await res.json();
+          if (!res.ok) {
+            throw new Error(parsed.errorMessage || parsed.message || ('솔라피 발송 오류 (HTTP ' + res.status + ')'));
+          }
+          var failedMap = {};
+          (parsed.failedMessageList || []).forEach(function (fm) {
+            var k = String(fm.to || '').replace(/\D/g, '');
+            failedMap[k] = fm.statusMessage || fm.reason || fm.statusCode || '발송실패';
+          });
+          var groupId = (parsed.groupInfo && (parsed.groupInfo.groupId || parsed.groupInfo._id)) || '';
+          var successCount = 0;
+          var failCount = 0;
+          var results = items.map(function (it) {
+            var cleanPhone = String(it.phone || '').replace(/\D/g, '');
+            var failReason = failedMap[cleanPhone] || '';
+            var ok = !failReason;
+            if (ok) successCount++; else failCount++;
+            var byteLen = calcEucKrBytes(it.message);
+            return {
+              phone: it.phone,
+              cleanPhone: cleanPhone,
+              customerName: it.customerName || '',
+              trackingNo: it.trackingNo || '',
+              msgType: byteLen <= 90 ? 'SMS' : 'LMS',
+              byteLen: byteLen,
+              message: it.message,
+              status: ok ? '완료' : '실패',
+              detail: ok ? ('직접발송성공' + (groupId ? ' (' + groupId + ')' : '')) : failReason,
+              source: it.source || 'manual',
+              groupId: groupId
+            };
+          });
+          return {
+            ok: true,
+            direct: true,
+            groupId: groupId,
+            successCount: successCount,
+            failCount: failCount,
+            results: results
+          };
+        }
       };
 
       var SmsApiAdapter = {
@@ -1407,7 +1505,41 @@
 
         try {
           var testMode = document.getElementById('chkTestMode').checked;
-          if (SmsApiAdapter.isConnected()) {
+          if (!testMode && SolapiDirectClient.isReady()) {
+            var directResp = await SolapiDirectClient.sendMany([{
+              phone: p.formatted,
+              customerName: customerName,
+              message: cleanMsg,
+              source: 'manual'
+            }]);
+            var nowStr = nowKstFormatted();
+            var r0 = directResp.results[0] || {};
+            state.logs.unshift({
+              id: 'dir_' + Date.now(),
+              sentAt: nowStr,
+              phone: p.formatted,
+              customerName: customerName,
+              trackingNo: '',
+              msgType: r0.msgType || (bytes <= 90 ? 'SMS' : 'LMS'),
+              byteLen: bytes,
+              message: cleanMsg,
+              status: r0.status || '완료',
+              resultDetail: r0.detail || ''
+            });
+            saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
+            if (SmsApiAdapter.isConnected()) {
+              SmsApiAdapter.request('recordLogs', { results: directResp.results }).catch(function () {});
+            }
+            if (directResp.failCount > 0) {
+              showToast('❌ 발송 실패: ' + (r0.detail || '번호 확인 필요'));
+            } else {
+              showToast('✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
+              document.getElementById('singlePhoneInput').value = '';
+              document.getElementById('singleNameInput').value = '';
+              document.getElementById('dupTodayNotice').style.display = 'none';
+              refreshBalanceQuietly();
+            }
+          } else if (SmsApiAdapter.isConnected()) {
             var resp = await SmsApiAdapter.request('send', {
               requestId: makeRequestId(),
               testMode: testMode,
@@ -1425,7 +1557,7 @@
             if (resp.failCount > 0) {
               showToast('❌ 발송 실패: ' + (resp.results[0] && resp.results[0].detail ? resp.results[0].detail : '번호 확인 필요'));
             } else {
-              showToast(resp.simulation ? '🧪 체험 발송 기록 완료!' : '✅ 주누디자인(053-267-3973) 문자 발송 완료!');
+              showToast(resp.simulation ? '🧪 체험 발송 기록 완료!' : '✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
               document.getElementById('singlePhoneInput').value = '';
               document.getElementById('singleNameInput').value = '';
               document.getElementById('dupTodayNotice').style.display = 'none';
@@ -1513,7 +1645,50 @@
         var chunkSize = 100;
 
         try {
-          if (SmsApiAdapter.isConnected()) {
+          if (!testMode && SolapiDirectClient.isReady()) {
+            for (var dOff = 0; dOff < targets.length; dOff += chunkSize) {
+              var dSlice = targets.slice(dOff, dOff + chunkSize);
+              btn.textContent = '⏳ 직접 일괄 발송 중... (' + Math.min(dOff + dSlice.length, targets.length) + ' / ' + targets.length + '명)';
+              var dPayloadItems = dSlice.map(function (t) {
+                return {
+                  phone: t.formattedPhone,
+                  customerName: t.customerName,
+                  trackingNo: t.trackingDisplay,
+                  message: t.message,
+                  source: 'delivery'
+                };
+              });
+              var dResp = await SolapiDirectClient.sendMany(dPayloadItems);
+              totalSuccess += Number(dResp.successCount || 0);
+              totalFail += Number(dResp.failCount || 0);
+              var nowBulkStr = nowKstFormatted();
+              (dResp.results || []).forEach(function (r, rIdx) {
+                state.logs.unshift({
+                  id: 'dir_b_' + Date.now() + '_' + rIdx,
+                  sentAt: nowBulkStr,
+                  phone: r.phone,
+                  customerName: r.customerName,
+                  trackingNo: r.trackingNo,
+                  msgType: r.msgType,
+                  byteLen: r.byteLen,
+                  message: r.message,
+                  status: r.status,
+                  resultDetail: r.detail
+                });
+                if (r.status !== '실패' && r.cleanPhone && r.trackingNo) {
+                  r.trackingNo.split(/[,\s/]+/).forEach(function (part) {
+                    var d = part.replace(/\D/g, '');
+                    if (d) state.lastSentKeys.push(r.cleanPhone + '|' + d);
+                  });
+                }
+              });
+              saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
+              if (SmsApiAdapter.isConnected()) {
+                SmsApiAdapter.request('recordLogs', { results: dResp.results }).catch(function () {});
+              }
+            }
+            refreshBalanceQuietly();
+          } else if (SmsApiAdapter.isConnected()) {
             for (var offset = 0; offset < targets.length; offset += chunkSize) {
               var slice = targets.slice(offset, offset + chunkSize);
               btn.textContent = '⏳ 일괄 발송 중... (' + Math.min(offset + slice.length, targets.length) + ' / ' + targets.length + '명)';
@@ -1764,7 +1939,8 @@
           var resp = await SmsApiAdapter.request('init', { includeBalance: true });
           if (resp.config) {
             state.senderPhone = resp.config.senderPhone || '053-267-3973';
-            state.hasSolapiKey = Boolean(resp.config.hasSolapiKey);
+            state.senderDigits = resp.config.senderDigits || String(state.senderPhone).replace(/\D/g, '') || '0532673973';
+            state.hasSolapiKey = Boolean(resp.config.hasSolapiKey) || SolapiDirectClient.isReady();
             document.getElementById('cfgSenderPhone').value = state.senderPhone;
             if (resp.config.deliverySpreadsheetId) {
               document.getElementById('cfgDeliverySsId').value = resp.config.deliverySpreadsheetId;
@@ -1775,6 +1951,8 @@
           }
           if (resp.balance && resp.balance.availableTotal !== undefined) {
             state.availableBalance = resp.balance.availableTotal;
+          } else if (SolapiDirectClient.isReady()) {
+            try { state.availableBalance = await SolapiDirectClient.fetchBalance(); } catch (e) {}
           }
           if (Array.isArray(resp.templates) && resp.templates.length > 0) {
             state.templates = resp.templates;
@@ -1794,8 +1972,13 @@
       }
 
       async function refreshBalanceQuietly() {
-        if (!SmsApiAdapter.isConnected()) return;
         try {
+          if (SolapiDirectClient.isReady()) {
+            state.availableBalance = await SolapiDirectClient.fetchBalance();
+            renderHeaderStatus();
+            return;
+          }
+          if (!SmsApiAdapter.isConnected()) return;
           var resp = await SmsApiAdapter.request('balance', {});
           if (resp.balance && resp.balance.availableTotal !== undefined) {
             state.availableBalance = resp.balance.availableTotal;
@@ -2038,25 +2221,40 @@
         document.getElementById('btnSaveServerConfig').addEventListener('click', async function () {
           var url = document.getElementById('cfgScriptUrl').value.trim();
           var pin = document.getElementById('cfgPin').value.trim();
+          var sKey = document.getElementById('cfgSolapiKey').value.trim();
+          var sSec = document.getElementById('cfgSolapiSecret').value.trim();
+          var sSender = document.getElementById('cfgSenderPhone').value.trim();
           if (!url || pin.length < 4) return showToast('⚠️ 웹앱 URL과 4자리 이상의 사내 PIN을 입력해 주세요');
           state.scriptUrl = url;
           state.pin = pin;
           localStorage.setItem(STORAGE_KEYS.scriptUrl, url);
           localStorage.setItem(STORAGE_KEYS.pin, pin);
+          if (sKey) {
+            state.solapiApiKey = sKey;
+            localStorage.setItem(STORAGE_KEYS.solapiKey, sKey);
+          }
+          if (sSec) {
+            state.solapiApiSecret = sSec;
+            localStorage.setItem(STORAGE_KEYS.solapiSecret, sSec);
+          }
+          if (sSender) {
+            state.senderPhone = sSender;
+            state.senderDigits = sSender.replace(/\D/g, '') || '0532673973';
+          }
 
           try {
             await SmsApiAdapter.request('saveConfig', {
               newPin: pin,
-              solapiApiKey: document.getElementById('cfgSolapiKey').value.trim(),
-              solapiApiSecret: document.getElementById('cfgSolapiSecret').value.trim(),
-              senderPhone: document.getElementById('cfgSenderPhone').value.trim(),
+              solapiApiKey: sKey,
+              solapiApiSecret: sSec,
+              senderPhone: sSender,
               deliverySpreadsheetId: document.getElementById('cfgDeliverySsId').value.trim()
             });
             document.getElementById('cfgSolapiKey').value = '';
             document.getElementById('cfgSolapiSecret').value = '';
             await syncWithServer(true);
             document.getElementById('modalSettings').classList.remove('open');
-            showToast('✅ 서버 및 솔라피 설정이 안전하게 저장되었습니다!');
+            showToast('✅ 서버 및 솔라피 직접발송 설정이 완료되었습니다!');
           } catch (err) {
             showToast('❌ 저장 실패: ' + err.message);
           }
