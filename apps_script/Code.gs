@@ -11,7 +11,7 @@ var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
 var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
-var SERVER_VERSION_ = "2.1";
+var SERVER_VERSION_ = "2.2";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -399,6 +399,8 @@ function getMaskedConfig_() {
   var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
   var sender = String(props.getProperty("SENDER_PHONE") || DEFAULT_SENDER_PHONE_).replace(/\D/g, "") || DEFAULT_SENDER_PHONE_;
   var deliverySsId = getDeliverySpreadsheetId_();
+  var relayUrl = String(props.getProperty("RELAY_URL") || "").trim();
+  var relayToken = String(props.getProperty("RELAY_TOKEN") || "").trim();
 
   var maskedKey = "";
   if (apiKey.length > 6) {
@@ -412,8 +414,20 @@ function getMaskedConfig_() {
     maskedApiKey: maskedKey,
     senderPhone: formatSenderDisplay_(sender),
     senderDigits: sender,
-    deliverySpreadsheetId: deliverySsId
+    deliverySpreadsheetId: deliverySsId,
+    relayActive: Boolean(relayUrl && relayToken),
+    relayUrl: relayUrl
   };
+}
+
+function computeHmacHex_(message, secret) {
+  var sigBytes = Utilities.computeHmacSha256Signature(message, secret, Utilities.Charset.UTF_8);
+  var hexParts = [];
+  for (var i = 0; i < sigBytes.length; i++) {
+    var b = sigBytes[i] & 0xFF;
+    hexParts.push((b < 16 ? "0" : "") + b.toString(16));
+  }
+  return hexParts.join("");
 }
 
 /**
@@ -422,29 +436,77 @@ function getMaskedConfig_() {
 function buildSolapiAuthHeader_(apiKey, apiSecret) {
   var date = new Date().toISOString();
   var salt = Utilities.getUuid().replace(/-/g, "");
-  var sigBytes = Utilities.computeHmacSha256Signature(date + salt, apiSecret);
-  var hexParts = [];
-  for (var i = 0; i < sigBytes.length; i++) {
-    var b = sigBytes[i] & 0xFF;
-    hexParts.push((b < 16 ? "0" : "") + b.toString(16));
-  }
-  return "HMAC-SHA256 apiKey=" + apiKey + ", date=" + date + ", salt=" + salt + ", signature=" + hexParts.join("");
+  var sigHex = computeHmacHex_(date + salt, apiSecret);
+  return "HMAC-SHA256 apiKey=" + apiKey + ", date=" + date + ", salt=" + salt + ", signature=" + sigHex;
 }
 
-function fetchSolapiBalance_(apiKey, apiSecret) {
-  var resp = UrlFetchApp.fetch("https://api.solapi.com/cash/v1/balance", {
-    method: "get",
+/**
+ * 카페24 고정 IP 중계기(설정 시) 또는 직접 호출 통합 게이트웨이
+ */
+function callSolapiApi_(method, path, payloadObj, apiKey, apiSecret) {
+  var props = PropertiesService.getScriptProperties();
+  var relayUrl = String(props.getProperty("RELAY_URL") || "").trim();
+  var relayToken = String(props.getProperty("RELAY_TOKEN") || "").trim();
+
+  if (relayUrl && relayToken) {
+    var ts = String(Math.floor(Date.now() / 1000));
+    var nonce = Utilities.getUuid().replace(/-/g, "");
+    var relayBody = JSON.stringify({
+      method: String(method || "GET").toUpperCase(),
+      path: path,
+      body: payloadObj || null,
+      ts: ts,
+      nonce: nonce
+    });
+    var sig = computeHmacHex_(relayBody, relayToken);
+    var rResp = UrlFetchApp.fetch(relayUrl, {
+      method: "post",
+      contentType: "application/json; charset=utf-8",
+      headers: {
+        "X-Joonoo-Sig": sig,
+        "User-Agent": "Mozilla/5.0 JoonooSmsRelay/2.2"
+      },
+      payload: relayBody,
+      muteHttpExceptions: true
+    });
+    var rCode = rResp.getResponseCode();
+    var rParsed = {};
+    try {
+      rParsed = JSON.parse(rResp.getContentText());
+    } catch (re) {}
+    if (!rParsed || !rParsed.relayOk) {
+      throw new Error((rParsed && rParsed.relayError) || ("고정IP 중계서버 응답 오류(HTTP " + rCode + ")"));
+    }
+    return {
+      code: Number(rParsed.httpCode || 500),
+      parsed: rParsed.solapi || {}
+    };
+  }
+
+  var opts = {
+    method: String(method || "get").toLowerCase(),
     headers: {
       Authorization: buildSolapiAuthHeader_(apiKey, apiSecret)
     },
     muteHttpExceptions: true
-  });
+  };
+  if (payloadObj) {
+    opts.contentType = "application/json";
+    opts.payload = JSON.stringify(payloadObj);
+  }
+  var resp = UrlFetchApp.fetch("https://api.solapi.com" + path, opts);
   var code = resp.getResponseCode();
-  var bodyText = resp.getContentText();
   var parsed = {};
   try {
-    parsed = JSON.parse(bodyText);
+    parsed = JSON.parse(resp.getContentText());
   } catch (e) {}
+  return { code: code, parsed: parsed };
+}
+
+function fetchSolapiBalance_(apiKey, apiSecret) {
+  var res = callSolapiApi_("GET", "/cash/v1/balance", null, apiKey, apiSecret);
+  var code = res.code;
+  var parsed = res.parsed;
   if (code < 200 || code >= 300) {
     throw new Error(parsed.errorMessage || parsed.message || ("솔라피 잔액 조회 오류(HTTP " + code + ")"));
   }
@@ -640,6 +702,16 @@ function doPost(e) {
           var ssInput = String(data.deliverySpreadsheetId).trim();
           var idMatch = ssInput.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
           props.setProperty("DELIVERY_SS_ID", idMatch ? idMatch[1] : ssInput);
+        }
+        if (data.relayUrl !== undefined) {
+          var ru = String(data.relayUrl || "").trim();
+          if (!ru || ru === "CLEAR") props.deleteProperty("RELAY_URL");
+          else props.setProperty("RELAY_URL", ru);
+        }
+        if (data.relayToken !== undefined) {
+          var rt = String(data.relayToken || "").trim();
+          if (!rt || rt === "CLEAR") props.deleteProperty("RELAY_TOKEN");
+          else props.setProperty("RELAY_TOKEN", rt);
         }
         ensureLocalSheets_();
         return jsonOut_({
@@ -1101,25 +1173,19 @@ function doPost(e) {
             solapiMessages.push(msgPayload);
           }
 
-          var solResp = UrlFetchApp.fetch("https://api.solapi.com/messages/v4/send-many/detail", {
-            method: "post",
-            contentType: "application/json",
-            headers: {
-              Authorization: buildSolapiAuthHeader_(apiKey, apiSecret)
-            },
-            payload: JSON.stringify({
+          var solRes = callSolapiApi_(
+            "POST",
+            "/messages/v4/send-many/detail",
+            {
               messages: solapiMessages,
               allowDuplicates: true
-            }),
-            muteHttpExceptions: true
-          });
+            },
+            apiKey,
+            apiSecret
+          );
 
-          var httpCode = solResp.getResponseCode();
-          var solText = solResp.getContentText();
-          var solJson = {};
-          try {
-            solJson = JSON.parse(solText);
-          } catch (je) {}
+          var httpCode = solRes.code;
+          var solJson = solRes.parsed || {};
 
           if (httpCode < 200 || httpCode >= 300) {
             return jsonOut_({

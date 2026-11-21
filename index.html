@@ -786,7 +786,7 @@
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
       var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
-      var APP_VERSION = 'v3.0'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
+      var APP_VERSION = 'v3.1'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
 
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
@@ -796,6 +796,7 @@
         senderPhone: '053-267-3973',
         senderDigits: '0532673973',
         hasSolapiKey: false,
+        relayActive: false,
         availableBalance: null,
         templates: loadLocalJson(STORAGE_KEYS.localTemplates, DEFAULT_TEMPLATES),
         logs: loadLocalJson(STORAGE_KEYS.localLogs, []),
@@ -1688,39 +1689,47 @@
 
         try {
           var testMode = document.getElementById('chkTestMode').checked;
-          if (!testMode && SolapiDirectClient.isReady()) {
-            var directResp = await SolapiDirectClient.sendMany([{
-              phone: p.formatted,
-              customerName: customerName,
-              message: cleanMsg,
-              source: 'manual'
-            }]);
-            var r0 = directResp.results[0] || {};
-            state.logs.unshift({
-              id: 'dir_' + Date.now(),
-              sentAt: nowKstFormatted(),
-              phone: p.formatted,
-              customerName: customerName,
-              trackingNo: '',
-              msgType: r0.msgType || (bytes <= 90 ? 'SMS' : 'LMS'),
-              byteLen: bytes,
-              message: cleanMsg,
-              status: r0.status || '완료',
-              resultDetail: r0.detail || ''
-            });
-            saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
-            renderLogs();
-            await syncDirectLogsToServer(directResp.results); // 서버 기록 완료 후 서버 내역으로 일원화 (중복 0)
-            if (directResp.failCount > 0) {
-              showToast('❌ 발송 실패: ' + (r0.detail || '번호 확인 필요'));
-            } else {
-              showToast('✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
-              document.getElementById('singlePhoneInput').value = '';
-              document.getElementById('singleNameInput').value = '';
-              document.getElementById('dupTodayNotice').style.display = 'none';
-              refreshBalanceQuietly();
+          var usedDirect = false;
+          if (!testMode && !state.relayActive && SolapiDirectClient.isReady()) {
+            try {
+              var directResp = await SolapiDirectClient.sendMany([{
+                phone: p.formatted,
+                customerName: customerName,
+                message: cleanMsg,
+                source: 'manual'
+              }]);
+              usedDirect = true;
+              var r0 = directResp.results[0] || {};
+              state.logs.unshift({
+                id: 'dir_' + Date.now(),
+                sentAt: nowKstFormatted(),
+                phone: p.formatted,
+                customerName: customerName,
+                trackingNo: '',
+                msgType: r0.msgType || (bytes <= 90 ? 'SMS' : 'LMS'),
+                byteLen: bytes,
+                message: cleanMsg,
+                status: r0.status || '완료',
+                resultDetail: r0.detail || ''
+              });
+              saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
+              renderLogs();
+              await syncDirectLogsToServer(directResp.results); // 서버 기록 완료 후 서버 내역으로 일원화 (중복 0)
+              if (directResp.failCount > 0) {
+                showToast('❌ 발송 실패: ' + (r0.detail || '번호 확인 필요'));
+              } else {
+                showToast('✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
+                document.getElementById('singlePhoneInput').value = '';
+                document.getElementById('singleNameInput').value = '';
+                document.getElementById('dupTodayNotice').style.display = 'none';
+                refreshBalanceQuietly();
+              }
+            } catch (dirErr) {
+              // 외부 LTE/5G 등으로 직접 발송 IP 차단 시 서버(카페24 고정IP 중계기)로 즉시 자동 우회 발송
+              if (!isIpError(dirErr)) throw dirErr;
             }
-          } else {
+          }
+          if (!usedDirect) {
             var resp = await SmsApiAdapter.request('send', {
               requestId: makeRequestId(),
               testMode: testMode,
@@ -1821,7 +1830,7 @@
         state.sending = true;
         btn.disabled = true;
         var testMode = document.getElementById('chkTestMode').checked;
-        var useDirect = !testMode && SolapiDirectClient.isReady();
+        var useDirect = !testMode && !state.relayActive && SolapiDirectClient.isReady();
         // 직원이 '발송완료' 행을 직접 다시 체크한 경우에만 서버 중복차단 해제 (그 외엔 항상 이중발송 차단)
         var skipAlreadySent = !targets.some(function (t) { return t.isSent; });
         var totalSuccess = 0;
@@ -1861,21 +1870,29 @@
               return { phone: t.formattedPhone, customerName: t.customerName, trackingNo: t.trackingDisplay, message: t.message, source: 'delivery' };
             });
 
+            var chunkHandledDirect = false;
             if (useDirect) {
-              var dResp = await SolapiDirectClient.sendMany(items);
-              totalSuccess += Number(dResp.successCount || 0);
-              totalFail += Number(dResp.failCount || 0);
-              remember(dResp.results);
-              var nowBulkStr = nowKstFormatted();
-              dResp.results.forEach(function (r, i) {
-                state.logs.unshift({
-                  id: 'dir_b_' + Date.now() + '_' + i, sentAt: nowBulkStr, phone: r.phone, customerName: r.customerName,
-                  trackingNo: r.trackingNo, msgType: r.msgType, byteLen: r.byteLen, message: r.message, status: r.status, resultDetail: r.detail
+              try {
+                var dResp = await SolapiDirectClient.sendMany(items);
+                chunkHandledDirect = true;
+                totalSuccess += Number(dResp.successCount || 0);
+                totalFail += Number(dResp.failCount || 0);
+                remember(dResp.results);
+                var nowBulkStr = nowKstFormatted();
+                dResp.results.forEach(function (r, i) {
+                  state.logs.unshift({
+                    id: 'dir_b_' + Date.now() + '_' + i, sentAt: nowBulkStr, phone: r.phone, customerName: r.customerName,
+                    trackingNo: r.trackingNo, msgType: r.msgType, byteLen: r.byteLen, message: r.message, status: r.status, resultDetail: r.detail
+                  });
                 });
-              });
-              saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
-              await syncDirectLogsToServer(dResp.results);
-            } else {
+                saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
+                await syncDirectLogsToServer(dResp.results);
+              } catch (dirBulkErr) {
+                if (!isIpError(dirBulkErr)) throw dirBulkErr;
+                useDirect = false;
+              }
+            }
+            if (!chunkHandledDirect) {
               var resp = await SmsApiAdapter.request('send', {
                 requestId: makeRequestId(),
                 testMode: testMode,
@@ -2129,19 +2146,26 @@
           if (resp.config) {
             state.senderPhone = resp.config.senderPhone || '053-267-3973';
             state.senderDigits = resp.config.senderDigits || String(state.senderPhone).replace(/\D/g, '') || '0532673973';
+            state.relayActive = Boolean(resp.config.relayActive);
             state.hasSolapiKey = Boolean(resp.config.hasSolapiKey) || SolapiDirectClient.isReady();
             document.getElementById('cfgSenderPhone').value = state.senderPhone;
             if (resp.config.deliverySpreadsheetId) {
               document.getElementById('cfgDeliverySsId').value = resp.config.deliverySpreadsheetId;
             }
             document.getElementById('cfgKeyMaskStatus').textContent = state.hasSolapiKey
-              ? '(현재 연동됨: ' + (resp.config.maskedApiKey || '등록완료') + ')'
+              ? '(현재 연동됨: ' + (resp.config.maskedApiKey || '등록완료') + (state.relayActive ? ' · 전국무제한중계ON' : '') + ')'
               : '(솔라피 키 미등록)';
           }
-          // 발송 가능 여부 사전 점검: 이 기기가 직접 발송하면 이 기기 IP로, 아니면 구글 서버 IP로 잔액 조회 결과 확인
+          // 발송 가능 여부 점검: 카페24 고정IP 중계기가 켜져 있으면 어느 망(LTE/5G/외부)에서든 서버 잔액으로 즉시 통과
           state.ipBlocked = false;
-          if (SolapiDirectClient.isReady()) {
-            try { state.availableBalance = await SolapiDirectClient.fetchBalance(); } catch (e) { state.ipBlocked = isIpError(e); }
+          if (state.relayActive && resp.balance && resp.balance.availableTotal !== undefined) {
+            state.availableBalance = resp.balance.availableTotal;
+          } else if (!state.relayActive && SolapiDirectClient.isReady()) {
+            try { state.availableBalance = await SolapiDirectClient.fetchBalance(); }
+            catch (e) {
+              if (resp.balance && resp.balance.availableTotal !== undefined) state.availableBalance = resp.balance.availableTotal;
+              else state.ipBlocked = isIpError(e);
+            }
           } else if (resp.balance && resp.balance.availableTotal !== undefined) {
             state.availableBalance = resp.balance.availableTotal;
           } else if (resp.balance && resp.balance.error) {
@@ -2178,7 +2202,7 @@
 
       async function refreshBalanceQuietly() {
         try {
-          if (SolapiDirectClient.isReady()) {
+          if (!state.relayActive && SolapiDirectClient.isReady()) {
             state.availableBalance = await SolapiDirectClient.fetchBalance();
             state.ipBlocked = false;
             renderHeaderStatus();
@@ -2188,6 +2212,7 @@
           var resp = await SmsApiAdapter.request('balance', {});
           if (resp.balance && resp.balance.availableTotal !== undefined) {
             state.availableBalance = resp.balance.availableTotal;
+            state.ipBlocked = false;
             renderHeaderStatus();
           }
         } catch (e) {
