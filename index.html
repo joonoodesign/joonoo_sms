@@ -2079,6 +2079,9 @@
             renderLogs();
           }
           renderHeaderStatus();
+          if (document.getElementById('panelDelivery').classList.contains('active')) {
+            handleLoadDeliveryFromSheet();
+          }
           if (!silent) showToast('✅ 서버 동기화 완료!');
         } catch (err) {
           if (!silent) showToast('❌ 연결 오류: ' + err.message);

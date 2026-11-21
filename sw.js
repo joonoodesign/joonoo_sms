@@ -1,4 +1,4 @@
-const CACHE_NAME = 'joonoo-sms-v2.4';
+const CACHE_NAME = 'joonoo-sms-v2.5';
 const ASSETS = [
   './',
   './index.html',
@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' })
       .then((res) => {
         if (res && res.status === 200 && res.type === 'basic') {
           const clone = res.clone();
