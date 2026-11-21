@@ -848,7 +848,10 @@
               'Authorization': auth,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ messages: messages })
+            body: JSON.stringify({
+              allowDuplicates: true,
+              messages: messages
+            })
           });
           var parsed = await res.json();
           if (!res.ok) {
