@@ -1,6 +1,5 @@
-// 주누디자인 고객 문자·알림톡 센터 서비스워커 (PWA 독립 창 앱 & 초고속 구동)
-const CACHE_NAME = 'joonoo-sms-v100';
-const STATIC_ASSETS = [
+const CACHE_NAME = 'joonoo-sms-v2.1';
+const ASSETS = [
   './',
   './index.html',
   './manifest.json',
@@ -8,69 +7,35 @@ const STATIC_ASSETS = [
   './icon-512.png'
 ];
 
-self.addEventListener('install', (e) => {
+self.addEventListener('install', (event) => {
   self.skipWaiting();
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
 });
 
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      )
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-
-  const url = e.request.url;
-  // 클라우드 API 요청(Apps Script, Solapi 등)은 절대 캐싱하지 않음
-  if (
-    url.includes('script.google.com') ||
-    url.includes('script.googleusercontent.com') ||
-    url.includes('api.solapi.com')
-  ) {
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET' || req.url.includes('script.google.com') || req.url.includes('googleusercontent.com')) {
     return;
   }
-
-  // 강제 새로고침(?t=...) 파라미터 시 네트워크 우선 갱신
-  if (url.includes('?t=')) {
-    e.respondWith(
-      fetch(e.request, { cache: 'no-store' })
-        .then((res) => {
-          if (res && res.status === 200) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', clone));
-          }
-          return res;
-        })
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  // Stale-While-Revalidate 전략: 0.01초 즉시 렌더링 후 백그라운드 최신화
-  e.respondWith(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.match(e.request, { ignoreSearch: true }).then((cached) => {
-        const networkFetch = fetch(e.request)
-          .then((res) => {
-            if (res && res.status === 200 && (url.startsWith(self.location.origin) || url.includes('pretendard'))) {
-              cache.put(e.request, res.clone());
-            }
-            return res;
-          })
-          .catch(() => cached);
-
-        return cached || networkFetch;
+  event.respondWith(
+    fetch(req)
+      .then((res) => {
+        if (res && res.status === 200 && res.type === 'basic') {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
+        return res;
       })
-    )
+      .catch(() => caches.match(req))
   );
 });

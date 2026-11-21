@@ -1,37 +1,25 @@
 {
-  "name": "주누디자인 고객 문자·알림톡 센터",
-  "short_name": "주누문자센터",
-  "description": "주누디자인 전 직원 공유 회사번호(053-267-3973) 문자 및 카카오 알림톡 통합 관제 센터",
+  "name": "주누디자인 문자센터",
+  "short_name": "주누문자",
+  "description": "주누디자인 사내 공용 문자 발송 및 배송데이터 송장 일괄 전송 앱 (053-267-3973)",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
-  "background_color": "#0B192C",
+  "background_color": "#f4f6fb",
   "theme_color": "#0B192C",
+  "orientation": "any",
   "icons": [
     {
-      "src": "./icon-192.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "./icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "./icon-512.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "./icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }

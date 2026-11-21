@@ -1,206 +1,81 @@
 /**
- * ============================================================================
- * 주누디자인 고객 문자·알림톡 센터 (joonoo_sms) — Google Apps Script 클라우드 백엔드
- * ============================================================================
- * - 역할:
- *   1) 전 직원 실시간 발송내역 공유 대장 ('발송내역' 시트 자동 생성)
- *   2) 전 직원 공용 상용구/알림톡 템플릿 CRUD ('공용상용구' 시트 + 기본 7종 자동 시드)
- *   3) 사내 PIN 비밀번호 보안 인증 (상수 시간 비교 safeEqual_ 적용)
- *   4) Solapi REST API v4 연동 (HMAC-SHA256 서명 · SMS/LMS/카카오 알림톡 발송 · 잔액 조회)
- *   5) API Key / API Secret 브라우저 노출 0% (ScriptProperties 서버 금고 전용 보관)
- *   6) LockService + CacheService 기반 10초 이내 동일 번호·내용 더블클릭 중복 발송 원천 차단
- * ============================================================================
+ * 주누디자인 ERP 연동형 고객 문자센터 (joonoo_sms v2.0) - Google Apps Script 백엔드
+ * - 발신자 고정: 주누디자인 (053-267-3973) | 100% 순수 문자(SMS/LMS) 전용 (MMS/알림톡 원천 배제)
+ * - 데이터 분리:
+ *   1) 현재 스프레드시트(문자센터 전용 DB): [문자상용구], [문자발송내역] 2개 시트 자동 생성·관리
+ *   2) 원격 접수대장 스프레드시트(1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c):
+ *      오직 [배송데이터] 탭(gid=350646918, A:이름 | B:전화번호 | C:송장번호) 1개만 격리 접근 (나머지 시트 접근 0%)
  */
 
-var SHEET_HISTORY_ = "발송내역";
-var SHEET_TEMPLATES_ = "공용상용구";
-var DEFAULT_SENDER_DIGITS_ = "0532673973";
+var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
+var DELIVERY_SHEET_GID_ = 350646918;
+var DELIVERY_SHEET_NAME_ = "배송데이터";
+var DEFAULT_SENDER_PHONE_ = "0532673973";
 
-var HISTORY_HEADERS_ = [
+var SHEET_TEMPLATES_ = "문자상용구";
+var SHEET_LOGS_ = "문자발송내역";
+
+var LOG_HEADERS_ = [
   "id",
   "sent_at",
-  "staff",
-  "customer_name",
   "phone",
-  "mode",
-  "template_title",
-  "message_preview",
-  "tracking_info",
+  "customer_name",
+  "tracking_no",
+  "msg_type",
+  "byte_len",
+  "message",
   "status",
+  "result_detail",
+  "source",
+  "ref_id",
   "group_id"
 ];
 
-var TEMPLATE_HEADERS_ = [
+var TPL_HEADERS_ = [
   "id",
-  "category",
   "title",
-  "mode",
-  "subject",
   "body",
-  "template_id",
-  "buttons_info",
-  "updated_by",
+  "sort_order",
   "updated_at"
 ];
 
-/**
- * 주누디자인 기본 공용 상용구 7종 (시트가 비어있을 때 최초 1회 자동 시드)
- */
 var DEFAULT_TEMPLATES_ = [
   {
     id: "tpl_kakao_chat",
-    category: "상담·안내",
-    title: "🟡 카카오톡 1:1 상담창 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 카톡 상담창 안내",
-    body:
-      "안녕하세요, #{고객명}님! 인쇄·디자인 전문 주누디자인입니다.\n" +
-      "문의 주셔서 감사합니다. 인쇄 원고·로고·사진 전달 및 시안 상담은 아래 공식 카카오톡 상담창으로 말씀 남겨주시면 순차적으로 안내해 드리겠습니다.\n\n" +
-      "▶ 카톡 1:1 상담창 바로가기\n" +
-      "https://pf.kakao.com/_xhlXFj/chat\n\n" +
-      "▶ 공식 쇼핑몰: https://joonoo.co.kr\n" +
-      "☎ 고객센터: 053-267-3973",
-    template_id: "",
-    buttons_info: JSON.stringify([
-      {
-        name: "카카오톡 상담창 열기",
-        type: "WL",
-        url_mobile: "https://pf.kakao.com/_xhlXFj/chat",
-        url_pc: "https://pf.kakao.com/_xhlXFj/chat"
-      },
-      {
-        name: "채널 추가",
-        type: "AC"
-      }
-    ])
-  },
-  {
-    id: "tpl_shipping_track",
-    category: "배송·출고",
-    title: "📦 택배 출고 및 송장 배송조회 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 인쇄물 출고 안내",
-    body:
-      "안녕하세요, #{고객명}님! 주누디자인입니다.\n" +
-      "주문하신 인쇄물이 제작 완료되어 오늘 출고되었습니다.\n\n" +
-      "■ 택배사: #{택배사}\n" +
-      "■ 송장번호: #{송장번호}\n\n" +
-      "▶ 실시간 배송조회 바로가기\n" +
-      "https://#{배송조회주소}\n\n" +
-      "받으실 때까지 안전하게 배송하겠습니다. 감사합니다.\n" +
-      "☎ 문의: 053-267-3973",
-    template_id: "",
-    buttons_info: JSON.stringify([
-      {
-        name: "실시간 배송조회",
-        type: "WL",
-        url_mobile: "https://#{배송조회주소}",
-        url_pc: "https://#{배송조회주소}"
-      },
-      {
-        name: "카카오톡 문의하기",
-        type: "WL",
-        url_mobile: "https://pf.kakao.com/_xhlXFj/chat",
-        url_pc: "https://pf.kakao.com/_xhlXFj/chat"
-      }
-    ])
+    title: "카톡 플친 상담창 연결",
+    body: "[주누디자인] 안녕하세요 :) 인쇄 원고 전달 및 시안 상담은 아래 공식 카카오톡 상담창을 눌러 말씀 남겨주세요.\nhttps://pf.kakao.com/_xhlXFj/chat\n문의: 053-267-3973"
   },
   {
     id: "tpl_proof_check",
-    category: "시안·교정",
-    title: "🎨 인쇄 시안 확인 요청 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 인쇄 시안 확인 요청",
-    body:
-      "안녕하세요, #{고객명}님! 주누디자인입니다.\n" +
-      "요청하신 디자인 시안 작업이 완료되어 안내드립니다.\n\n" +
-      "오탈자·연락처·수량 등을 확인해 주신 뒤, 아래 카카오톡 상담창으로 [인쇄 진행 확정] 또는 [수정 요청사항]을 회신해 주세요.\n" +
-      "(※ 확정 회신 후 인쇄가 진행되며, 인쇄 시작 후에는 수정이 어렵습니다.)\n\n" +
-      "▶ 시안 확인 및 카톡 회신하기\n" +
-      "https://pf.kakao.com/_xhlXFj/chat\n" +
-      "☎ 고객센터: 053-267-3973",
-    template_id: "",
-    buttons_info: JSON.stringify([
-      {
-        name: "시안 확인 및 카톡 회신",
-        type: "WL",
-        url_mobile: "https://pf.kakao.com/_xhlXFj/chat",
-        url_pc: "https://pf.kakao.com/_xhlXFj/chat"
-      }
-    ])
+    title: "시안 확인 요청",
+    body: "[주누디자인] 요청하신 디자인 시안 작업이 완료되었습니다.\n아래 카카오톡 상담창에서 오탈자 확인 후 [인쇄 확정] 또는 [수정 요청사항]을 남겨주세요.\nhttps://pf.kakao.com/_xhlXFj/chat\n(확정 후 인쇄가 진행되면 수정이 어렵습니다)"
   },
   {
-    id: "tpl_bank_account",
-    category: "결제·입금",
-    title: "💳 입금계좌 및 세금계산서 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 입금계좌 안내",
-    body:
-      "안녕하세요, #{고객명}님! 주누디자인입니다.\n" +
-      "요청하신 입금계좌 안내드립니다.\n\n" +
-      "■ 입금은행: 농협 351-1052-3914-03\n" +
-      "■ 예금주: 전현수 (주누디자인)\n\n" +
-      "입금 후 카카오톡 상담창으로 입금자명(세금계산서 발행 시 사업자등록증 사본)을 보내주시면 빠르게 확인 도와드리겠습니다.\n" +
-      "▶ 카톡 상담창: https://pf.kakao.com/_xhlXFj/chat",
-    template_id: "",
-    buttons_info: JSON.stringify([
-      {
-        name: "사업자등록증 카톡 전송",
-        type: "WL",
-        url_mobile: "https://pf.kakao.com/_xhlXFj/chat",
-        url_pc: "https://pf.kakao.com/_xhlXFj/chat"
-      }
-    ])
+    id: "tpl_bank_info",
+    title: "농협 계좌 안내",
+    body: "[주누디자인 입금계좌 안내]\n농협 351-1052-3914-03 (예금주: 전현수)\n입금 후 성함 말씀해 주시면 확인 후 바로 진행해 드리겠습니다. 감사합니다."
   },
   {
-    id: "tpl_visit_pickup",
-    category: "방문·수령",
-    title: "🏢 방문수령 및 사업장 주소 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 방문수령 안내",
-    body:
-      "안녕하세요, #{고객명}님! 주누디자인입니다.\n" +
-      "주문하신 인쇄물 제작이 완료되어 방문수령 가능합니다.\n\n" +
-      "■ 사업장 주소: 대구광역시 달서구 구마로39길 38\n" +
-      "■ 대표번호: 053-267-3973\n\n" +
-      "방문 전 미리 연락 주시면 바로 수령하실 수 있도록 준비해 두겠습니다. 감사합니다!",
-    template_id: "",
-    buttons_info: "[]"
+    id: "tpl_pickup_addr",
+    title: "방문수령 주소",
+    body: "[주누디자인 방문수령 안내]\n주소: 대구광역시 달서구 구마로39길 38\n고객센터: 053-267-3973\n방문 전 연락 부탁드립니다. 감사합니다."
   },
   {
-    id: "tpl_file_upload",
-    category: "상담·안내",
-    title: "📎 로고·인쇄 원본파일 접수 안내",
-    mode: "SMS",
-    subject: "[주누디자인] 원본파일 접수 안내",
-    body:
-      "안녕하세요, #{고객명}님! 주누디자인입니다.\n" +
-      "보유하신 로고(AI 일러스트 원본)나 고화질 사진, 인쇄 원고를 아래 카카오톡 상담창으로 보내주시면 담당 디자이너가 확인 후 바로 안내드리겠습니다.\n\n" +
-      "▶ 카톡으로 파일 보내기\n" +
-      "https://pf.kakao.com/_xhlXFj/chat\n" +
-      "▶ 공식몰: https://joonoo.co.kr\n" +
-      "☎ 053-267-3973",
-    template_id: "",
-    buttons_info: JSON.stringify([
-      {
-        name: "카톡으로 파일 보내기",
-        type: "WL",
-        url_mobile: "https://pf.kakao.com/_xhlXFj/chat",
-        url_pc: "https://pf.kakao.com/_xhlXFj/chat"
-      }
-    ])
-  },
-  {
-    id: "tpl_short_sms",
-    category: "상담·안내",
-    title: "⚡ 통화중·부재중 초간단 단문(SMS 90B 이하)",
-    mode: "SMS",
-    subject: "",
-    body: "[주누디자인] 통화중이었습니다. 카톡상담: https://pf.kakao.com/_xhlXFj/chat",
-    template_id: "",
-    buttons_info: "[]"
+    id: "tpl_print_guide",
+    title: "인쇄 마감·출고 안내",
+    body: "[주누디자인 출고 안내]\n시안 최종 확정 후 인쇄가 진행되며 한진택배로 출고됩니다.\n출고 후 수령까지 평균 1~2영업일(공휴일 제외) 소요됩니다.\n문의: 053-267-3973"
   }
 ];
+
+/**
+ * 최초 1회 편집기에서 실행하여 스프레드시트·외부통신 권한 승인 및 기본 시트를 준비할 때 사용합니다.
+ */
+function 초기권한승인및시트준비() {
+  ensureLocalSheets_();
+  var deliveryId = getDeliverySpreadsheetId_();
+  var deliverySheet = getIsolatedDeliverySheet_(deliveryId);
+  Logger.log("로컬 DB 시트 준비 완료 & 배송데이터 탭 연결 확인 완료: " + deliverySheet.getName());
+}
 
 function jsonOut_(payload) {
   return ContentService
@@ -208,9 +83,14 @@ function jsonOut_(payload) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/**
- * 상수 시간 문자열 비교 (Timing Attack 방지)
- */
+function nowKstStr_() {
+  return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd HH:mm:ss");
+}
+
+function todayKstPrefix_() {
+  return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd");
+}
+
 function safeEqual_(a, b) {
   var sa = String(a || "");
   var sb = String(b || "");
@@ -222,29 +102,6 @@ function safeEqual_(a, b) {
   return diff === 0;
 }
 
-function nowKst_() {
-  return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd HH:mm:ss");
-}
-
-function cleanDigits_(val) {
-  return String(val || "").replace(/[^0-9]/g, "");
-}
-
-function formatKoreanPhone_(raw) {
-  var d = cleanDigits_(raw);
-  if (d.indexOf("02") === 0) {
-    if (d.length === 9) return d.replace(/(\d{2})(\d{3})(\d{4})/, "$1-$2-$3");
-    if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, "$1-$2-$3");
-  }
-  if (d.length === 8) return d.replace(/(\d{4})(\d{4})/, "$1-$2");
-  if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3");
-  if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3");
-  return d || String(raw || "");
-}
-
-/**
- * 수식 주입(Formula Injection) 방지 및 문자열 정규화
- */
 function safeCell_(val) {
   var s = String(val == null ? "" : val);
   if (/^[=+\-@]/.test(s)) {
@@ -254,741 +111,1022 @@ function safeCell_(val) {
 }
 
 /**
- * 시트 2개('발송내역', '공용상용구') 자동 생성 및 기본 상용구 7종 시드
+ * EUC-KR 비호환 이모지/특수공백 안전 정제
  */
-function ensureSheets_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+function sanitizeForEucKr_(text) {
+  var s = String(text == null ? "" : text);
+  s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
+  s = s.replace(/\u00A0/g, " ");
+  s = s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[–—]/g, "-");
+  s = s.replace(/📦/g, "[택배]")
+       .replace(/🚚/g, "[배송]")
+       .replace(/😊|😄|☺️|🙂/g, "^^")
+       .replace(/❤️|💕|💖|♥️/g, "♥")
+       .replace(/⭐|🌟/g, "★")
+       .replace(/✅|☑️/g, "[확인]")
+       .replace(/⚠️/g, "[안내]")
+       .replace(/☎|☎️|📞/g, "TEL:");
+  // 서로게이트 페어(나머지 컬러 이모지) 제거
+  s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+  return s;
+}
 
-  // 1) 발송내역 시트
-  var historySheet = ss.getSheetByName(SHEET_HISTORY_);
-  if (!historySheet) {
-    historySheet = ss.insertSheet(SHEET_HISTORY_);
-    historySheet.getRange(1, 1, 1, HISTORY_HEADERS_.length).setValues([HISTORY_HEADERS_]);
-    historySheet.setFrozenRows(1);
-    historySheet.getRange(1, 1, 1, HISTORY_HEADERS_.length)
-      .setBackground("#0B192C")
-      .setFontColor("#FFFFFF")
-      .setFontWeight("bold");
-    historySheet.getRange("A:K").setNumberFormat("@");
-  } else if (historySheet.getLastRow() === 0) {
-    historySheet.getRange(1, 1, 1, HISTORY_HEADERS_.length).setValues([HISTORY_HEADERS_]);
-    historySheet.setFrozenRows(1);
-    historySheet.getRange("A:K").setNumberFormat("@");
+function calcEucKrBytes_(text) {
+  var s = String(text == null ? "" : text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  var bytes = 0;
+  for (var i = 0; i < s.length; i++) {
+    var code = s.charCodeAt(i);
+    bytes += code <= 0x7F ? 1 : 2;
   }
-
-  // 2) 공용상용구 시트
-  var tplSheet = ss.getSheetByName(SHEET_TEMPLATES_);
-  if (!tplSheet) {
-    tplSheet = ss.insertSheet(SHEET_TEMPLATES_);
-    tplSheet.getRange(1, 1, 1, TEMPLATE_HEADERS_.length).setValues([TEMPLATE_HEADERS_]);
-    tplSheet.setFrozenRows(1);
-    tplSheet.getRange(1, 1, 1, TEMPLATE_HEADERS_.length)
-      .setBackground("#0B192C")
-      .setFontColor("#FFFFFF")
-      .setFontWeight("bold");
-    tplSheet.getRange("A:J").setNumberFormat("@");
-  } else if (tplSheet.getLastRow() === 0) {
-    tplSheet.getRange(1, 1, 1, TEMPLATE_HEADERS_.length).setValues([TEMPLATE_HEADERS_]);
-    tplSheet.setFrozenRows(1);
-    tplSheet.getRange("A:J").setNumberFormat("@");
-  }
-
-  // 기본 상용구 7종 시드 (데이터 행이 없을 때 자동 투입)
-  if (tplSheet.getLastRow() <= 1) {
-    var seedTime = nowKst_();
-    var seedRows = DEFAULT_TEMPLATES_.map(function(t) {
-      return [
-        t.id,
-        t.category,
-        t.title,
-        t.mode,
-        t.subject,
-        t.body,
-        t.template_id,
-        t.buttons_info,
-        "시스템초기화",
-        seedTime
-      ];
-    });
-    tplSheet.getRange(2, 1, seedRows.length, TEMPLATE_HEADERS_.length)
-      .setNumberFormat("@")
-      .setValues(seedRows);
-  }
-
-  return {
-    historySheet: historySheet,
-    tplSheet: tplSheet
-  };
+  return bytes;
 }
 
 /**
- * 민감정보(API Key/Secret) 원문을 절대 노출하지 않는 마스킹 설정 객체 생성
+ * 한국 휴대폰(010 등 10~11자리) 및 안심번호(050X 11~12자리) 정규화
  */
-function getMaskedConfig_(props) {
-  var expectedPin = String(props.getProperty("APP_PIN") || "").trim();
-  var apiKey = String(props.getProperty("SOLAPI_API_KEY") || "").trim();
-  var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
-  var senderDigits = cleanDigits_(props.getProperty("SENDER_PHONE") || DEFAULT_SENDER_DIGITS_) || DEFAULT_SENDER_DIGITS_;
-  var pfId = String(props.getProperty("SOLAPI_PF_ID") || "").trim();
+function normalizeReceiverPhone_(raw) {
+  var orig = String(raw == null ? "" : raw).trim();
+  if (!orig) return { valid: false, clean: "", formatted: "", reason: "번호 없음", restoredZero: false, isSafeNum: false };
+  if (/e\+/i.test(orig)) {
+    return { valid: false, clean: "", formatted: orig, reason: "엑셀 지수깨짐(E+)", restoredZero: false, isSafeNum: false };
+  }
 
-  var maskedKey = "";
-  if (apiKey) {
-    if (apiKey.length > 6) {
-      maskedKey = apiKey.slice(0, 4) + "****" + apiKey.slice(-2);
-    } else {
-      maskedKey = apiKey.slice(0, 2) + "****";
-    }
+  var s = orig.replace(/^\+82[\s\-]?/, "0").replace(/^82[\s\-]/, "0");
+  var digits = s.replace(/\D/g, "");
+  var restoredZero = false;
+
+  // 시트 숫자 서식으로 앞자리 0이 빠진 경우 복원 (10xxxxxxxx -> 010xxxxxxxx, 50xxxxxxxxx -> 050xxxxxxxxx)
+  if (/^10\d{8}$/.test(digits)) {
+    digits = "0" + digits;
+    restoredZero = true;
+  } else if (/^50\d{8,9}$/.test(digits)) {
+    digits = "0" + digits;
+    restoredZero = true;
+  }
+
+  var isMobile = /^01[016789]\d{7,8}$/.test(digits);
+  var isSafeNum = /^050\d{8,9}$/.test(digits);
+
+  if (!isMobile && !isSafeNum) {
+    var reason = /^0(2|[3-6][1-5]|70)/.test(digits) ? "유선번호(문자수신불가)" : "번호형식오류";
+    return { valid: false, clean: digits, formatted: orig, reason: reason, restoredZero: restoredZero, isSafeNum: false };
+  }
+
+  var formatted = digits;
+  if (digits.length === 11) {
+    formatted = digits.slice(0, 3) + "-" + digits.slice(3, 7) + "-" + digits.slice(7);
+  } else if (digits.length === 12) {
+    formatted = digits.slice(0, 4) + "-" + digits.slice(4, 8) + "-" + digits.slice(8);
+  } else if (digits.length === 10) {
+    formatted = digits.slice(0, 3) + "-" + digits.slice(3, 6) + "-" + digits.slice(6);
   }
 
   return {
-    pinConfigured: Boolean(expectedPin),
-    hasSolapiKey: Boolean(apiKey && apiSecret),
-    maskedApiKey: maskedKey,
-    senderPhone: formatKoreanPhone_(senderDigits),
-    senderPhoneDigits: senderDigits,
-    pfId: pfId
+    valid: true,
+    clean: digits,
+    formatted: formatted,
+    reason: "",
+    restoredZero: restoredZero,
+    isSafeNum: isSafeNum
   };
+}
+
+function normalizeTrackingNo_(rawVal, displayVal) {
+  var disp = String(displayVal == null ? "" : displayVal).trim();
+  var rawStr = String(rawVal == null ? "" : rawVal).trim();
+  if (/e\+/i.test(disp)) {
+    return { valid: false, clean: "", reason: "송장 지수깨짐(E+)" };
+  }
+  var candidate = disp || rawStr;
+  if (typeof rawVal === "number" && isFinite(rawVal)) {
+    candidate = rawVal.toFixed(0);
+  }
+  // 소수점 .0 제거
+  candidate = candidate.replace(/\.0+$/, "");
+  var digits = candidate.replace(/\D/g, "");
+  if (!digits) {
+    return { valid: false, clean: "", reason: "송장번호 없음" };
+  }
+  if (digits.length < 9 || digits.length > 16) {
+    return { valid: false, clean: digits, reason: "송장 자리수 확인(" + digits.length + "자리)" };
+  }
+  return { valid: true, clean: digits, reason: "" };
+}
+
+function formatSenderDisplay_(digits) {
+  var d = String(digits || DEFAULT_SENDER_PHONE_).replace(/\D/g, "") || DEFAULT_SENDER_PHONE_;
+  if (d.indexOf("02") === 0) {
+    return d.length === 9
+      ? d.slice(0, 2) + "-" + d.slice(2, 5) + "-" + d.slice(5)
+      : d.slice(0, 2) + "-" + d.slice(2, 6) + "-" + d.slice(6);
+  }
+  if (d.length === 10) return d.slice(0, 3) + "-" + d.slice(3, 6) + "-" + d.slice(6);
+  if (d.length === 11) return d.slice(0, 3) + "-" + d.slice(3, 7) + "-" + d.slice(7);
+  if (d.length === 8) return d.slice(0, 4) + "-" + d.slice(4);
+  return d;
+}
+
+function getDeliverySpreadsheetId_() {
+  var props = PropertiesService.getScriptProperties();
+  var saved = String(props.getProperty("DELIVERY_SS_ID") || "").trim();
+  return saved || DEFAULT_DELIVERY_SS_ID_;
+}
+
+/**
+ * 원격 접수대장 통합 시트에서 오직 '배송데이터'(gid=350646918) 시트만 격리 조회
+ * - 다른 11개 기밀 시트는 절대 읽거나 접근하지 않음
+ */
+function getIsolatedDeliverySheet_(spreadsheetId) {
+  var targetId = String(spreadsheetId || "").trim() || getDeliverySpreadsheetId_();
+  var ss = SpreadsheetApp.openById(targetId);
+  var sheets = ss.getSheets();
+  var matched = null;
+
+  // 1순위: 고유 시트 ID(gid=350646918) + 이름 확인
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId() === DELIVERY_SHEET_GID_) {
+      matched = sheets[i];
+      break;
+    }
+  }
+  // 2순위: 이름 trim 매칭 ('배송데이터')
+  if (!matched) {
+    for (var j = 0; j < sheets.length; j++) {
+      if (String(sheets[j].getName() || "").trim() === DELIVERY_SHEET_NAME_) {
+        matched = sheets[j];
+        break;
+      }
+    }
+  }
+
+  if (!matched) {
+    throw new Error("지정된 스프레드시트에서 '배송데이터' 탭을 찾을 수 없습니다.");
+  }
+  return matched;
+}
+
+function ensureLocalSheets_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var tplSheet = ss.getSheetByName(SHEET_TEMPLATES_);
+  if (!tplSheet) {
+    tplSheet = ss.insertSheet(SHEET_TEMPLATES_);
+  }
+  if (tplSheet.getLastRow() === 0) {
+    tplSheet.getRange(1, 1, 1, TPL_HEADERS_.length).setNumberFormat("@").setValues([TPL_HEADERS_]);
+    tplSheet.setFrozenRows(1);
+    var now = nowKstStr_();
+    var seedRows = [];
+    for (var i = 0; i < DEFAULT_TEMPLATES_.length; i++) {
+      var t = DEFAULT_TEMPLATES_[i];
+      seedRows.push([t.id, safeCell_(t.title), safeCell_(t.body), String(i + 1), now]);
+    }
+    tplSheet.getRange(2, 1, seedRows.length, TPL_HEADERS_.length).setNumberFormat("@").setValues(seedRows);
+  }
+
+  var logSheet = ss.getSheetByName(SHEET_LOGS_);
+  if (!logSheet) {
+    logSheet = ss.insertSheet(SHEET_LOGS_);
+  }
+  if (logSheet.getLastRow() === 0) {
+    logSheet.getRange(1, 1, 1, LOG_HEADERS_.length).setNumberFormat("@").setValues([LOG_HEADERS_]);
+    logSheet.setFrozenRows(1);
+  }
+
+  return { tplSheet: tplSheet, logSheet: logSheet };
 }
 
 function readTemplates_(tplSheet) {
   var lastRow = tplSheet.getLastRow();
   if (lastRow <= 1) return [];
-  var values = tplSheet.getRange(2, 1, lastRow - 1, TEMPLATE_HEADERS_.length).getValues();
+  var vals = tplSheet.getRange(2, 1, lastRow - 1, TPL_HEADERS_.length).getDisplayValues();
   var list = [];
-  for (var i = 0; i < values.length; i++) {
-    var r = values[i];
-    if (!r[0] && !r[2] && !r[5]) continue;
+  for (var i = 0; i < vals.length; i++) {
+    var r = vals[i];
+    if (!r[0] && !r[1]) continue;
     list.push({
-      id: String(r[0] || ""),
-      category: String(r[1] || "상담·안내"),
-      title: String(r[2] || ""),
-      mode: String(r[3] || "SMS"),
-      subject: String(r[4] || ""),
-      body: String(r[5] || ""),
-      template_id: String(r[6] || ""),
-      buttons_info: String(r[7] || "[]"),
-      updated_by: String(r[8] || ""),
-      updated_at: String(r[9] || "")
+      id: String(r[0] || "").trim(),
+      title: String(r[1] || "").replace(/^'/, ""),
+      body: String(r[2] || "").replace(/^'/, ""),
+      sortOrder: Number(r[3] || i + 1),
+      updatedAt: String(r[4] || "")
     });
   }
   return list;
 }
 
-function readHistory_(historySheet, maxCount) {
-  var limit = maxCount || 300;
-  var lastRow = historySheet.getLastRow();
+function readRecentLogs_(logSheet, limitCount) {
+  var limit = limitCount || 250;
+  var lastRow = logSheet.getLastRow();
   if (lastRow <= 1) return [];
+  var totalDataRows = lastRow - 1;
   var startRow = Math.max(2, lastRow - limit + 1);
   var numRows = lastRow - startRow + 1;
-  var values = historySheet.getRange(startRow, 1, numRows, HISTORY_HEADERS_.length).getValues();
-  var list = [];
-  for (var i = values.length - 1; i >= 0; i--) {
-    var r = values[i];
-    if (!r[0] && !r[4]) continue;
-    list.push({
+  var vals = logSheet.getRange(startRow, 1, numRows, LOG_HEADERS_.length).getDisplayValues();
+  var logs = [];
+  for (var i = vals.length - 1; i >= 0; i--) {
+    var r = vals[i];
+    if (!r[0] && !r[2]) continue;
+    logs.push({
       id: String(r[0] || ""),
-      sent_at: String(r[1] || ""),
-      staff: String(r[2] || ""),
-      customer_name: String(r[3] || ""),
-      phone: formatKoreanPhone_(r[4]),
-      mode: String(r[5] || "SMS"),
-      template_title: String(r[6] || ""),
-      message_preview: String(r[7] || ""),
-      tracking_info: String(r[8] || ""),
-      status: String(r[9] || ""),
-      group_id: String(r[10] || "")
+      sentAt: String(r[1] || ""),
+      phone: String(r[2] || "").replace(/^'/, ""),
+      customerName: String(r[3] || "").replace(/^'/, ""),
+      trackingNo: String(r[4] || "").replace(/^'/, ""),
+      msgType: String(r[5] || "SMS"),
+      byteLen: Number(r[6] || 0),
+      message: String(r[7] || "").replace(/^'/, ""),
+      status: String(r[8] || ""),
+      resultDetail: String(r[9] || "").replace(/^'/, ""),
+      source: String(r[10] || "manual"),
+      refId: String(r[11] || "")
     });
   }
-  return list;
+  return logs;
 }
 
 /**
- * Solapi REST API v4 HMAC-SHA256 인증 헤더 생성
+ * 최근 로그에서 이미 발송 성공한 (정규화전화번호|송장번호) 및 당일 전화번호 집합 생성
+ */
+function buildSentIndex_(logSheet) {
+  var lastRow = logSheet.getLastRow();
+  var sentPairMap = {};
+  var todayPhoneMap = {};
+  if (lastRow <= 1) {
+    return { sentPairMap: sentPairMap, todayPhoneMap: todayPhoneMap };
+  }
+  var startRow = Math.max(2, lastRow - 1500 + 1);
+  var vals = logSheet.getRange(startRow, 1, lastRow - startRow + 1, LOG_HEADERS_.length).getDisplayValues();
+  var todayPrefix = todayKstPrefix_();
+
+  for (var i = 0; i < vals.length; i++) {
+    var r = vals[i];
+    var status = String(r[8] || "");
+    if (status.indexOf("실패") !== -1) continue;
+    var sentAt = String(r[1] || "");
+    var cleanPhone = String(r[2] || "").replace(/\D/g, "");
+    var trackingRaw = String(r[4] || "").replace(/^'/, "");
+    if (!cleanPhone) continue;
+
+    if (sentAt.indexOf(todayPrefix) === 0 && !todayPhoneMap[cleanPhone]) {
+      todayPhoneMap[cleanPhone] = sentAt.slice(11, 16) || sentAt;
+    }
+
+    if (trackingRaw) {
+      var parts = trackingRaw.split(/[,\s/]+/);
+      for (var k = 0; k < parts.length; k++) {
+        var tDigits = parts[k].replace(/\D/g, "");
+        if (tDigits) {
+          sentPairMap[cleanPhone + "|" + tDigits] = sentAt;
+        }
+      }
+    }
+  }
+  return { sentPairMap: sentPairMap, todayPhoneMap: todayPhoneMap };
+}
+
+function getMaskedConfig_() {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = String(props.getProperty("SOLAPI_API_KEY") || "").trim();
+  var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
+  var sender = String(props.getProperty("SENDER_PHONE") || DEFAULT_SENDER_PHONE_).replace(/\D/g, "") || DEFAULT_SENDER_PHONE_;
+  var deliverySsId = getDeliverySpreadsheetId_();
+
+  var maskedKey = "";
+  if (apiKey.length > 6) {
+    maskedKey = apiKey.slice(0, 4) + "****" + apiKey.slice(-2);
+  } else if (apiKey) {
+    maskedKey = "****";
+  }
+
+  return {
+    hasSolapiKey: Boolean(apiKey && apiSecret),
+    maskedApiKey: maskedKey,
+    senderPhone: formatSenderDisplay_(sender),
+    senderDigits: sender,
+    deliverySpreadsheetId: deliverySsId
+  };
+}
+
+/**
+ * Solapi REST API v4 HMAC-SHA256 서명 생성 (signed byte 안전 변환)
  */
 function buildSolapiAuthHeader_(apiKey, apiSecret) {
   var date = new Date().toISOString();
   var salt = Utilities.getUuid().replace(/-/g, "");
   var sigBytes = Utilities.computeHmacSha256Signature(date + salt, apiSecret);
-  var signature = sigBytes.map(function(b) {
-    return ("0" + (b & 0xFF).toString(16)).slice(-2);
-  }).join("");
-  return "HMAC-SHA256 apiKey=" + apiKey + ", date=" + date + ", salt=" + salt + ", signature=" + signature;
+  var hexParts = [];
+  for (var i = 0; i < sigBytes.length; i++) {
+    var b = sigBytes[i] & 0xFF;
+    hexParts.push((b < 16 ? "0" : "") + b.toString(16));
+  }
+  return "HMAC-SHA256 apiKey=" + apiKey + ", date=" + date + ", salt=" + salt + ", signature=" + hexParts.join("");
 }
 
-/**
- * Solapi 잔액 조회 (GET /cash/v1/balance)
- */
-function fetchSolapiBalance_(props) {
-  var apiKey = String(props.getProperty("SOLAPI_API_KEY") || "").trim();
-  var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
-  if (!apiKey || !apiSecret) {
-    return {
-      ok: true,
-      hasSolapiKey: false,
-      balance: null,
-      point: null,
-      message: "솔라피 API 키가 아직 등록되지 않았습니다 (체험 모드)."
-    };
-  }
-
-  var authHeader = buildSolapiAuthHeader_(apiKey, apiSecret);
+function fetchSolapiBalance_(apiKey, apiSecret) {
   var resp = UrlFetchApp.fetch("https://api.solapi.com/cash/v1/balance", {
     method: "get",
     headers: {
-      Authorization: authHeader,
-      Accept: "application/json"
+      Authorization: buildSolapiAuthHeader_(apiKey, apiSecret)
     },
     muteHttpExceptions: true
   });
-
   var code = resp.getResponseCode();
-  var rawText = resp.getContentText();
+  var bodyText = resp.getContentText();
   var parsed = {};
   try {
-    parsed = JSON.parse(rawText);
+    parsed = JSON.parse(bodyText);
   } catch (e) {}
-
-  if (code >= 200 && code < 300) {
-    return {
-      ok: true,
-      hasSolapiKey: true,
-      balance: parsed.balance != null ? Number(parsed.balance) : 0,
-      point: parsed.point != null ? Number(parsed.point) : 0
-    };
+  if (code < 200 || code >= 300) {
+    throw new Error(parsed.errorMessage || parsed.message || ("솔라피 잔액 조회 오류(HTTP " + code + ")"));
   }
-
+  var balance = Number(parsed.balance || 0);
+  var point = Number(parsed.point || 0);
   return {
-    ok: false,
-    hasSolapiKey: true,
-    error: "SOLAPI_BALANCE_ERROR",
-    message: "솔라피 잔액 조회 실패 (" + code + "): " + (parsed.errorMessage || parsed.message || rawText)
+    balance: balance,
+    point: point,
+    availableTotal: balance + point
   };
 }
 
 /**
- * 카카오 알림톡 variables 객체 정규화 (키는 "#{변수명}", 값은 문자열 강제)
+ * PIN 무차별 대입 차단 (10회 연속 실패 시 10분 잠금)
  */
-function normalizeKakaoVariables_(vars) {
-  var result = {};
-  if (!vars || typeof vars !== "object") return result;
-  var keys = Object.keys(vars);
-  for (var i = 0; i < keys.length; i++) {
-    var k = String(keys[i] || "").trim();
-    if (!k) continue;
-    var wrappedKey = (k.indexOf("#{") === 0 && k.slice(-1) === "}") ? k : ("#{" + k + "}");
-    result[wrappedKey] = String(vars[keys[i]] == null ? "" : vars[keys[i]]);
+function verifyPinWithRateLimit_(providedPin, expectedPin) {
+  var cache = CacheService.getScriptCache();
+  var failKey = "PIN_FAIL_COUNT_V2";
+  var failCount = Number(cache.get(failKey) || "0");
+  if (failCount >= 10) {
+    return { ok: false, error: "RATE_LIMITED", message: "비밀번호 오류가 10회 누적되어 10분간 잠겼습니다. 잠시 후 다시 시도해 주세요." };
   }
-  return result;
+  if (!providedPin || !safeEqual_(providedPin, expectedPin)) {
+    cache.put(failKey, String(failCount + 1), 600);
+    return { ok: false, error: "INVALID_PIN", message: "사내 PIN 비밀번호가 올바르지 않습니다." };
+  }
+  if (failCount > 0) {
+    cache.remove(failKey);
+  }
+  return { ok: true };
 }
 
-/**
- * 브라우저 직접 접속 시 서버 정상 가동 안내
- */
+function readDeliverySheetRows_(logSheet) {
+  var deliverySheet = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
+  var lastRow = deliverySheet.getLastRow();
+  if (lastRow === 0) {
+    return { rows: [], sheetName: deliverySheet.getName(), headerValid: true };
+  }
+  var colCount = Math.max(3, Math.min(deliverySheet.getLastColumn(), 6));
+  var range = deliverySheet.getRange(1, 1, lastRow, colCount);
+  var rawVals = range.getValues();
+  var dispVals = range.getDisplayValues();
+
+  // 1행 헤더 탐색 (기본 A:이름, B:전화번호, C:송장번호 고정 매핑 + 헤더명 유연 인식)
+  var nameCol = 0;
+  var phoneCol = 1;
+  var trackCol = 2;
+  var startIdx = 0;
+
+  if (dispVals.length > 0) {
+    var h0 = String(dispVals[0][0] || "").replace(/\s+/g, "");
+    var h1 = String(dispVals[0][1] || "").replace(/\s+/g, "");
+    var h2 = String(dispVals[0][2] || "").replace(/\s+/g, "");
+    var looksLikeHeader =
+      /이름|성명|수령인|받는분|고객/.test(h0 + h1 + h2) ||
+      /전화|연락처|휴대폰|번호/.test(h0 + h1 + h2) ||
+      /송장|운송장|등기/.test(h0 + h1 + h2);
+
+    if (looksLikeHeader) {
+      startIdx = 1;
+      for (var c = 0; c < dispVals[0].length; c++) {
+        var hc = String(dispVals[0][c] || "").replace(/\s+/g, "");
+        if (/이름|성명|수령인|받는분성명|고객명/.test(hc)) nameCol = c;
+        else if (/전화|휴대폰|연락처|핸드폰/.test(hc)) phoneCol = c;
+        else if (/송장|운송장|등기번호/.test(hc)) trackCol = c;
+      }
+    }
+  }
+
+  var sentIdx = buildSentIndex_(logSheet);
+  var resultRows = [];
+
+  for (var r = startIdx; r < dispVals.length; r++) {
+    var dRow = dispVals[r];
+    var vRow = rawVals[r];
+    var rawName = String(dRow[nameCol] == null ? "" : dRow[nameCol]).trim();
+    var rawPhone = String(dRow[phoneCol] == null ? "" : dRow[phoneCol]).trim();
+    var dispTrack = String(dRow[trackCol] == null ? "" : dRow[trackCol]).trim();
+    var valTrack = vRow[trackCol];
+
+    // 빈 줄 무시
+    if (!rawName && !rawPhone && !dispTrack) continue;
+    // 중간에 중복 붙여넣기된 헤더 줄 무시
+    if (rawName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawPhone) && /송장/.test(dispTrack)) {
+      continue;
+    }
+
+    var pInfo = normalizeReceiverPhone_(rawPhone);
+    var tInfo = normalizeTrackingNo_(valTrack, dispTrack);
+    var pairKey = (pInfo.clean || "") + "|" + (tInfo.clean || "");
+    var alreadySentAt = (pInfo.valid && tInfo.valid && sentIdx.sentPairMap[pairKey]) ? sentIdx.sentPairMap[pairKey] : "";
+
+    resultRows.push({
+      sheetRow: r + 1,
+      customerName: rawName,
+      rawPhone: rawPhone,
+      phone: pInfo.valid ? pInfo.formatted : rawPhone,
+      cleanPhone: pInfo.clean,
+      phoneValid: pInfo.valid,
+      phoneReason: pInfo.reason,
+      restoredZero: pInfo.restoredZero,
+      isSafeNum: pInfo.isSafeNum,
+      rawTracking: dispTrack,
+      trackingNo: tInfo.clean || dispTrack,
+      trackingValid: tInfo.valid,
+      trackingReason: tInfo.reason,
+      alreadySentAt: alreadySentAt
+    });
+  }
+
+  return {
+    rows: resultRows,
+    sheetName: deliverySheet.getName()
+  };
+}
+
 function doGet() {
-  var props = PropertiesService.getScriptProperties();
-  var expectedPin = String(props.getProperty("APP_PIN") || "").trim();
   return jsonOut_({
     ok: true,
     service: "joonoo_sms",
-    pinConfigured: Boolean(expectedPin),
-    message: "주누디자인 고객 문자·알림톡 센터 백엔드(Code.gs)가 정상 가동 중입니다."
+    version: "2.0",
+    sender: "053-267-3973"
   });
 }
 
-/**
- * CORS Preflight(OPTIONS)를 발생시키지 않는 POST JSON 엔드포인트
- */
 function doPost(e) {
-  var raw = e && e.postData && e.postData.contents ? e.postData.contents : "";
-  var data;
   try {
-    data = JSON.parse(raw);
-  } catch (err) {
-    return jsonOut_({
-      ok: false,
-      error: "INVALID_JSON",
-      message: "요청 JSON 형식이 올바르지 않습니다."
-    });
-  }
-
-  if (!data || typeof data !== "object") {
-    return jsonOut_({
-      ok: false,
-      error: "EMPTY_PAYLOAD",
-      message: "요청 데이터가 비어 있습니다."
-    });
-  }
-
-  var action = String(data.action || "").trim();
-  var props = PropertiesService.getScriptProperties();
-  var expectedPin = String(props.getProperty("APP_PIN") || "").trim();
-  var providedPin = String(data.pin || "").trim();
-
-  // 0) 무인증 상태 점검 (민감 데이터 반환 없음)
-  if (action === "ping") {
-    return jsonOut_({
-      ok: true,
-      action: "ping",
-      pinConfigured: Boolean(expectedPin),
-      service: "joonoo_sms"
-    });
-  }
-
-  // 1) 서버 환경설정 및 최초 사내 PIN 등록 (saveConfig)
-  if (action === "saveConfig") {
-    var lockCfg = LockService.getScriptLock();
+    var raw = e && e.postData && e.postData.contents ? e.postData.contents : "";
+    var data;
     try {
-      lockCfg.waitLock(10000);
-      expectedPin = String(props.getProperty("APP_PIN") || "").trim();
+      data = JSON.parse(raw);
+    } catch (parseErr) {
+      return jsonOut_({ ok: false, error: "INVALID_JSON", message: "요청 데이터 형식이 올바르지 않습니다." });
+    }
 
-      if (!expectedPin) {
-        // 최초 1회 사내 PIN 신규 등록 허용
-        var firstPin = String(data.newPin || data.pin || "").trim();
-        if (firstPin.length < 4) {
-          return jsonOut_({
-            ok: false,
-            error: "WEAK_PIN",
-            message: "최초 설정할 사내 PIN 비밀번호는 4자리 이상 입력해 주세요."
+    if (!data || typeof data !== "object") {
+      return jsonOut_({ ok: false, error: "EMPTY_BODY", message: "요청 데이터가 비어 있습니다." });
+    }
+
+    var action = String(data.action || "").trim();
+    var props = PropertiesService.getScriptProperties();
+    var expectedPin = String(props.getProperty("APP_PIN") || "").trim();
+    var providedPin = String(data.pin || "").trim();
+
+    // 최초 1회 PIN 미설정 상태에서는 saveConfig로만 초기 PIN 등록 허용
+    if (!expectedPin) {
+      if (action !== "saveConfig") {
+        return jsonOut_({
+          ok: false,
+          error: "PIN_NOT_CONFIGURED",
+          message: "최초 1회 [⚙️ 설정]에서 사내 공용 PIN 비밀번호를 먼저 등록해 주세요."
+        });
+      }
+      var newInitPin = String(data.newPin || data.pin || "").trim();
+      if (newInitPin.length < 4) {
+        return jsonOut_({ ok: false, error: "WEAK_PIN", message: "사내 PIN은 4자리 이상으로 설정해 주세요." });
+      }
+      props.setProperty("APP_PIN", newInitPin);
+      expectedPin = newInitPin;
+      providedPin = newInitPin;
+    } else {
+      var pinCheck = verifyPinWithRateLimit_(providedPin, expectedPin);
+      if (!pinCheck.ok) {
+        return jsonOut_(pinCheck);
+      }
+    }
+
+    // 1. 설정 저장
+    if (action === "saveConfig") {
+      var lockCfg = LockService.getScriptLock();
+      if (!lockCfg.tryLock(15000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "설정 저장 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        if (data.newPin && String(data.newPin).trim().length >= 4) {
+          props.setProperty("APP_PIN", String(data.newPin).trim());
+        }
+        if (data.solapiApiKey && String(data.solapiApiKey).trim()) {
+          props.setProperty("SOLAPI_API_KEY", String(data.solapiApiKey).trim());
+        }
+        if (data.solapiApiSecret && String(data.solapiApiSecret).trim()) {
+          props.setProperty("SOLAPI_API_SECRET", String(data.solapiApiSecret).trim());
+        }
+        if (data.senderPhone) {
+          var cleanSender = String(data.senderPhone).replace(/\D/g, "");
+          if (cleanSender.length >= 8) {
+            props.setProperty("SENDER_PHONE", cleanSender);
+          }
+        }
+        if (data.deliverySpreadsheetId && String(data.deliverySpreadsheetId).trim()) {
+          var ssInput = String(data.deliverySpreadsheetId).trim();
+          var idMatch = ssInput.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+          props.setProperty("DELIVERY_SS_ID", idMatch ? idMatch[1] : ssInput);
+        }
+        ensureLocalSheets_();
+        return jsonOut_({
+          ok: true,
+          action: "saveConfig",
+          config: getMaskedConfig_()
+        });
+      } finally {
+        lockCfg.releaseLock();
+      }
+    }
+
+    // 2. 초기 로드 / 동기화 (상용구 + 최근 발송내역 + 설정 마스킹 정보 + 잔액)
+    if (action === "init" || action === "sync") {
+      var sheets = ensureLocalSheets_();
+      var templates = readTemplates_(sheets.tplSheet);
+      var logs = readRecentLogs_(sheets.logSheet, 250);
+      var cfg = getMaskedConfig_();
+      var balanceInfo = null;
+
+      if (cfg.hasSolapiKey && data.includeBalance !== false) {
+        try {
+          balanceInfo = fetchSolapiBalance_(
+            props.getProperty("SOLAPI_API_KEY"),
+            props.getProperty("SOLAPI_API_SECRET")
+          );
+        } catch (balErr) {
+          balanceInfo = { error: String(balErr.message || balErr) };
+        }
+      }
+
+      return jsonOut_({
+        ok: true,
+        action: action,
+        config: cfg,
+        balance: balanceInfo,
+        templates: templates,
+        logs: logs
+      });
+    }
+
+    // 3. 잔액 단독 조회
+    if (action === "balance") {
+      var cfgBal = getMaskedConfig_();
+      if (!cfgBal.hasSolapiKey) {
+        return jsonOut_({ ok: true, hasSolapiKey: false, balance: null });
+      }
+      var bal = fetchSolapiBalance_(
+        props.getProperty("SOLAPI_API_KEY"),
+        props.getProperty("SOLAPI_API_SECRET")
+      );
+      return jsonOut_({ ok: true, hasSolapiKey: true, balance: bal });
+    }
+
+    // 4. 공용 상용구 추가/수정 (고유 ID 기준 처리)
+    if (action === "saveTemplate") {
+      var title = sanitizeForEucKr_(String(data.title || "").trim());
+      var body = sanitizeForEucKr_(String(data.body || "").trim());
+      if (!title || title.length > 60) {
+        return jsonOut_({ ok: false, error: "INVALID_TITLE", message: "상용구 버튼 이름은 1~60자 이내로 입력해 주세요." });
+      }
+      if (!body || calcEucKrBytes_(body) > 2000) {
+        return jsonOut_({ ok: false, error: "INVALID_BODY", message: "상용구 내용은 2,000바이트 이내로 입력해 주세요." });
+      }
+
+      var lockTpl = LockService.getScriptLock();
+      if (!lockTpl.tryLock(15000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "다른 직원이 상용구를 저장 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        var tplSheets = ensureLocalSheets_();
+        var tplSheet = tplSheets.tplSheet;
+        var tplId = String(data.id || ("tpl_" + Utilities.getUuid().slice(0, 8))).trim();
+        var nowStr = nowKstStr_();
+        var lastR = tplSheet.getLastRow();
+        var updated = false;
+
+        if (lastR > 1) {
+          var ids = tplSheet.getRange(2, 1, lastR - 1, 1).getDisplayValues();
+          for (var idx = 0; idx < ids.length; idx++) {
+            if (String(ids[idx][0] || "").trim() === tplId) {
+              tplSheet.getRange(idx + 2, 1, 1, TPL_HEADERS_.length)
+                .setNumberFormat("@")
+                .setValues([[tplId, safeCell_(title), safeCell_(body), String(idx + 1), nowStr]]);
+              updated = true;
+              break;
+            }
+          }
+        }
+        if (!updated) {
+          var nextOrder = Math.max(1, lastR);
+          tplSheet.getRange(lastR + 1, 1, 1, TPL_HEADERS_.length)
+            .setNumberFormat("@")
+            .setValues([[tplId, safeCell_(title), safeCell_(body), String(nextOrder), nowStr]]);
+        }
+
+        return jsonOut_({
+          ok: true,
+          action: "saveTemplate",
+          templates: readTemplates_(tplSheet)
+        });
+      } finally {
+        lockTpl.releaseLock();
+      }
+    }
+
+    // 5. 공용 상용구 삭제 (고유 ID 기준 안전 삭제)
+    if (action === "deleteTemplate") {
+      var targetTplId = String(data.id || "").trim();
+      if (!targetTplId) {
+        return jsonOut_({ ok: false, error: "MISSING_ID", message: "삭제할 상용구 ID가 없습니다." });
+      }
+      var lockDel = LockService.getScriptLock();
+      if (!lockDel.tryLock(15000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "다른 직원이 상용구를 수정 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        var delSheets = ensureLocalSheets_();
+        var sTpl = delSheets.tplSheet;
+        var lr = sTpl.getLastRow();
+        if (lr > 1) {
+          var idCol = sTpl.getRange(2, 1, lr - 1, 1).getDisplayValues();
+          for (var d = idCol.length - 1; d >= 0; d--) {
+            if (String(idCol[d][0] || "").trim() === targetTplId) {
+              sTpl.deleteRow(d + 2);
+              break;
+            }
+          }
+        }
+        return jsonOut_({
+          ok: true,
+          action: "deleteTemplate",
+          templates: readTemplates_(sTpl)
+        });
+      } finally {
+        lockDel.releaseLock();
+      }
+    }
+
+    // 6. 원격 접수대장 통합 시트의 '배송데이터' 탭 실시간 불러오기
+    if (action === "loadDeliverySheet") {
+      var localDb = ensureLocalSheets_();
+      var loaded = readDeliverySheetRows_(localDb.logSheet);
+      return jsonOut_({
+        ok: true,
+        action: "loadDeliverySheet",
+        sheetName: loaded.sheetName,
+        rows: loaded.rows
+      });
+    }
+
+    // 7. 발송 완료된 행만 '배송데이터' 탭에서 안전 비우기 (1행 제목 유지 & 새로 추가된 미발송 행 보존!)
+    if (action === "clearDeliverySent") {
+      var lockClr = LockService.getScriptLock();
+      if (!lockClr.tryLock(25000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "다른 직원이 작업 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        var localForClr = ensureLocalSheets_();
+        var sentIndex = buildSentIndex_(localForClr.logSheet);
+        var clientKeys = Array.isArray(data.sentKeys) ? data.sentKeys : [];
+        for (var ck = 0; ck < clientKeys.length; ck++) {
+          sentIndex.sentPairMap[String(clientKeys[ck])] = "sent";
+        }
+
+        var dSheet = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
+        // 안전 가드: 반드시 시트 이름에 '배송데이터'가 일치해야 함
+        if (String(dSheet.getName() || "").trim() !== DELIVERY_SHEET_NAME_) {
+          return jsonOut_({ ok: false, error: "SHEET_GUARD", message: "안전 보호: 대상 탭 이름이 '배송데이터'가 아니므로 비우기를 중단했습니다." });
+        }
+
+        var dLastRow = dSheet.getLastRow();
+        if (dLastRow <= 1) {
+          return jsonOut_({ ok: true, removedCount: 0, remainingCount: 0, rows: [] });
+        }
+
+        var dRange = dSheet.getRange(2, 1, dLastRow - 1, 3);
+        var rawRows = dRange.getValues();
+        var dispRows = dRange.getDisplayValues();
+        var keptRows = [];
+        var removedCount = 0;
+
+        for (var rIdx = 0; rIdx < dispRows.length; rIdx++) {
+          var rDisp = dispRows[rIdx];
+          var rRaw = rawRows[rIdx];
+          var nm = String(rDisp[0] || "").trim();
+          var ph = String(rDisp[1] || "").trim();
+          var tr = String(rDisp[2] || "").trim();
+          if (!nm && !ph && !tr) continue;
+
+          var pNorm = normalizeReceiverPhone_(ph);
+          var tNorm = normalizeTrackingNo_(rRaw[2], tr);
+          var key = (pNorm.clean || "") + "|" + (tNorm.clean || "");
+
+          if (pNorm.valid && tNorm.valid && sentIndex.sentPairMap[key]) {
+            removedCount++;
+          } else {
+            keptRows.push([safeCell_(nm), safeCell_(ph), safeCell_(tNorm.clean || tr)]);
+          }
+        }
+
+        // A2:C 기존 데이터 내용만 비우고(서식 보존), 미발송 행이 있으면 2행부터 다시 채움
+        dRange.clearContent();
+        if (keptRows.length > 0) {
+          dSheet.getRange(2, 1, keptRows.length, 3).setNumberFormat("@").setValues(keptRows);
+        }
+
+        var refreshed = readDeliverySheetRows_(localForClr.logSheet);
+        return jsonOut_({
+          ok: true,
+          action: "clearDeliverySent",
+          removedCount: removedCount,
+          remainingCount: keptRows.length,
+          rows: refreshed.rows
+        });
+      } finally {
+        lockClr.releaseLock();
+      }
+    }
+
+    // 8. 단건 및 다건 문자 통합 발송 (SMS / LMS 전용, Idempotency + LockService 이중 발송 완벽 방어)
+    if (action === "send") {
+      var requestId = String(data.requestId || "").trim();
+      var cacheSvc = CacheService.getScriptCache();
+
+      if (requestId) {
+        var cachedResp = cacheSvc.get("REQ_IDEMP_" + requestId);
+        if (cachedResp) {
+          return ContentService.createTextOutput(cachedResp).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
+      var rawItems = Array.isArray(data.items) ? data.items : [];
+      if (rawItems.length === 0 && data.phone) {
+        rawItems = [{
+          phone: data.phone,
+          customerName: data.customerName || "",
+          trackingNo: data.trackingNo || "",
+          message: data.message || "",
+          source: data.source || "manual",
+          refId: data.refId || ""
+        }];
+      }
+
+      if (rawItems.length === 0) {
+        return jsonOut_({ ok: false, error: "NO_ITEMS", message: "발송할 대상이 없습니다." });
+      }
+      if (rawItems.length > 300) {
+        return jsonOut_({ ok: false, error: "BATCH_TOO_LARGE", message: "한 번에 최대 300건씩 분할 발송됩니다." });
+      }
+
+      var lockSend = LockService.getScriptLock();
+      if (!lockSend.tryLock(30000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "현재 다른 발송 요청을 처리 중입니다. 3초 후 다시 눌러주세요." });
+      }
+
+      try {
+        var db = ensureLocalSheets_();
+        var sentCheck = buildSentIndex_(db.logSheet);
+        var skipAlreadySent = data.skipAlreadySent !== false;
+
+        var validBatch = [];
+        var skippedItems = [];
+        var estimatedCost = 0;
+
+        for (var m = 0; m < rawItems.length; m++) {
+          var item = rawItems[m] || {};
+          var p = normalizeReceiverPhone_(item.phone);
+          var cleanMsg = sanitizeForEucKr_(item.message || "").trim();
+          var byteLen = calcEucKrBytes_(cleanMsg);
+          var trackStr = String(item.trackingNo || "").trim();
+
+          if (!p.valid) {
+            skippedItems.push({ phone: String(item.phone || ""), customerName: String(item.customerName || ""), reason: p.reason });
+            continue;
+          }
+          if (!cleanMsg) {
+            skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "문자 내용 비어있음" });
+            continue;
+          }
+          if (byteLen > 2000) {
+            skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "2,000바이트 초과(" + byteLen + "B)" });
+            continue;
+          }
+
+          // 단건 연타 중복 방지 (60초 내 동일 번호 + 동일 본문 해시 차단)
+          var dupHashKey = "DUP60_" + p.clean + "_" + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, cleanMsg)).slice(0, 12);
+          if (cacheSvc.get(dupHashKey)) {
+            skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "1분 내 동일 문자 중복 차단" });
+            continue;
+          }
+
+          // 송장 발송 시 이미 발송된 (번호+송장) 서버 락 내부 재검증
+          if (skipAlreadySent && trackStr) {
+            var firstTrack = trackStr.split(/[,\s/]+/)[0].replace(/\D/g, "");
+            if (firstTrack && sentCheck.sentPairMap[p.clean + "|" + firstTrack]) {
+              skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "이미 발송된 송장(" + firstTrack + ")" });
+              continue;
+            }
+          }
+
+          var msgType = byteLen <= 90 ? "SMS" : "LMS";
+          estimatedCost += msgType === "SMS" ? 18 : 45;
+
+          validBatch.push({
+            cleanPhone: p.clean,
+            formattedPhone: p.formatted,
+            customerName: sanitizeForEucKr_(item.customerName || "").trim(),
+            trackingNo: trackStr,
+            msgType: msgType,
+            byteLen: byteLen,
+            message: cleanMsg,
+            source: String(item.source || (trackStr ? "delivery" : "manual")).slice(0, 30),
+            refId: String(item.refId || "").slice(0, 60),
+            dupHashKey: dupHashKey
           });
         }
-        props.setProperty("APP_PIN", firstPin);
-      } else {
-        // 이미 설정된 경우 기존 PIN 일치 필수
-        if (!providedPin || !safeEqual_(providedPin, expectedPin)) {
+
+        if (validBatch.length === 0) {
           return jsonOut_({
             ok: false,
-            error: "INVALID_PIN",
-            message: "기존 사내 PIN 비밀번호가 일치하지 않아 설정을 변경할 수 없습니다."
+            error: "ALL_SKIPPED",
+            message: "발송 가능한 유효 건수가 없습니다. (" + (skippedItems[0] ? skippedItems[0].reason : "중복/오류") + ")",
+            skipped: skippedItems
           });
         }
-        var nextPin = String(data.newPin || "").trim();
-        if (nextPin) {
-          if (nextPin.length < 4) {
+
+        var apiKey = String(props.getProperty("SOLAPI_API_KEY") || "").trim();
+        var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
+        var senderDigits = String(props.getProperty("SENDER_PHONE") || DEFAULT_SENDER_PHONE_).replace(/\D/g, "") || DEFAULT_SENDER_PHONE_;
+        var isSimulation = Boolean(data.testMode) || !(apiKey && apiSecret);
+
+        var groupId = "";
+        var failedByPhone = {};
+        var sentSuccessCount = 0;
+        var sentFailCount = 0;
+
+        if (!isSimulation) {
+          // 발송 전 잔액 확인
+          var balBefore = fetchSolapiBalance_(apiKey, apiSecret);
+          if (balBefore.availableTotal < estimatedCost) {
             return jsonOut_({
               ok: false,
-              error: "WEAK_PIN",
-              message: "변경할 새 PIN 비밀번호는 4자리 이상이어야 합니다."
+              error: "INSUFFICIENT_BALANCE",
+              message: "솔라피 잔액이 부족합니다. (예상 약 " + estimatedCost + "원 / 현재 사용가능 " + balBefore.availableTotal + "원)",
+              balance: balBefore
             });
           }
-          props.setProperty("APP_PIN", nextPin);
-        }
-      }
 
-      if (typeof data.senderPhone === "string" && cleanDigits_(data.senderPhone)) {
-        props.setProperty("SENDER_PHONE", cleanDigits_(data.senderPhone));
-      } else if (!props.getProperty("SENDER_PHONE")) {
-        props.setProperty("SENDER_PHONE", DEFAULT_SENDER_DIGITS_);
-      }
-
-      if (typeof data.pfId === "string") {
-        props.setProperty("SOLAPI_PF_ID", data.pfId.trim());
-      }
-
-      if (data.clearSolapi === true) {
-        props.deleteProperty("SOLAPI_API_KEY");
-        props.deleteProperty("SOLAPI_API_SECRET");
-      } else {
-        var newApiKey = String(data.solapiApiKey || "").trim();
-        var newApiSecret = String(data.solapiApiSecret || "").trim();
-        if (newApiKey) props.setProperty("SOLAPI_API_KEY", newApiKey);
-        if (newApiSecret) props.setProperty("SOLAPI_API_SECRET", newApiSecret);
-      }
-
-      var sheetsAfterCfg = ensureSheets_();
-      var balanceAfterCfg = null;
-      try {
-        balanceAfterCfg = fetchSolapiBalance_(props);
-      } catch (eBal) {}
-
-      return jsonOut_({
-        ok: true,
-        action: "saveConfig",
-        config: getMaskedConfig_(props),
-        templates: readTemplates_(sheetsAfterCfg.tplSheet),
-        history: readHistory_(sheetsAfterCfg.historySheet, 300),
-        balanceInfo: balanceAfterCfg,
-        message: "서버 설정 및 보안 키가 안전하게 저장되었습니다."
-      });
-    } finally {
-      lockCfg.releaseLock();
-    }
-  }
-
-  // 2) 공통 사내 PIN 검증 게이트
-  if (!expectedPin) {
-    return jsonOut_({
-      ok: false,
-      error: "PIN_NOT_CONFIGURED",
-      pinConfigured: false,
-      message: "아직 사내 PIN이 설정되지 않았습니다. 상단 [⚙️ 서버·솔라피 연결 설정]에서 최초 1회 PIN을 지정해 주세요."
-    });
-  }
-
-  if (!providedPin || !safeEqual_(providedPin, expectedPin)) {
-    return jsonOut_({
-      ok: false,
-      error: "INVALID_PIN",
-      pinConfigured: true,
-      message: "사내 PIN 비밀번호가 일치하지 않습니다."
-    });
-  }
-
-  // 3) 설정 조회 (마스킹)
-  if (action === "getConfig") {
-    return jsonOut_({
-      ok: true,
-      action: "getConfig",
-      config: getMaskedConfig_(props)
-    });
-  }
-
-  // 4) 솔라피 잔액 조회
-  if (action === "balance") {
-    try {
-      var balRes = fetchSolapiBalance_(props);
-      return jsonOut_(balRes);
-    } catch (errBal) {
-      return jsonOut_({
-        ok: false,
-        error: "BALANCE_FETCH_FAILED",
-        message: "잔액 조회 중 오류가 발생했습니다: " + String(errBal.message || errBal)
-      });
-    }
-  }
-
-  // 5) 초기 데이터 로드 및 실시간 동기화 (init / sync)
-  if (action === "init" || action === "sync") {
-    var sheets = ensureSheets_();
-    var balanceInfo = null;
-    if (data.includeBalance !== false) {
-      try {
-        balanceInfo = fetchSolapiBalance_(props);
-      } catch (eInitBal) {}
-    }
-    return jsonOut_({
-      ok: true,
-      action: action,
-      config: getMaskedConfig_(props),
-      templates: readTemplates_(sheets.tplSheet),
-      history: readHistory_(sheets.historySheet, 300),
-      balanceInfo: balanceInfo
-    });
-  }
-
-  // 6) 쓰기/발송 작업은 ScriptLock 직렬화로 동시성 보호
-  var lock = LockService.getScriptLock();
-  try {
-    lock.waitLock(15000);
-    var ensured = ensureSheets_();
-
-    // 6-A) 공용 상용구 추가 / 수정
-    if (action === "saveTemplate") {
-      var tpl = data.template || {};
-      var tplId = String(tpl.id || ("tpl_" + Date.now())).trim();
-      var category = String(tpl.category || "상담·안내").trim();
-      var title = String(tpl.title || "").trim();
-      var tplMode = String(tpl.mode || "SMS").trim().toUpperCase() === "ATA" ? "ATA" : "SMS";
-      var subject = String(tpl.subject || "").trim();
-      var body = String(tpl.body || "").trim();
-      var solapiTplId = String(tpl.template_id || "").trim();
-      var buttonsInfo = typeof tpl.buttons_info === "string"
-        ? tpl.buttons_info
-        : JSON.stringify(tpl.buttons_info || []);
-      var staffName = String(data.staff || tpl.updated_by || "주누디자인").trim();
-      var updatedAt = nowKst_();
-
-      if (!title || !body) {
-        return jsonOut_({
-          ok: false,
-          error: "INVALID_TEMPLATE",
-          message: "상용구 제목과 본문 내용을 모두 입력해 주세요."
-        });
-      }
-
-      var rowValues = [
-        safeCell_(tplId),
-        safeCell_(category),
-        safeCell_(title),
-        tplMode,
-        safeCell_(subject),
-        safeCell_(body),
-        safeCell_(solapiTplId),
-        buttonsInfo,
-        safeCell_(staffName),
-        updatedAt
-      ];
-
-      var tplSheet = ensured.tplSheet;
-      var lastTplRow = tplSheet.getLastRow();
-      var updatedExisting = false;
-
-      if (lastTplRow > 1) {
-        var existingIds = tplSheet.getRange(2, 1, lastTplRow - 1, 1).getValues();
-        for (var rIdx = 0; rIdx < existingIds.length; rIdx++) {
-          if (String(existingIds[rIdx][0]).trim() === tplId) {
-            tplSheet.getRange(rIdx + 2, 1, 1, TEMPLATE_HEADERS_.length)
-              .setNumberFormat("@")
-              .setValues([rowValues]);
-            updatedExisting = true;
-            break;
+          var solapiMessages = [];
+          for (var s = 0; s < validBatch.length; s++) {
+            var vb = validBatch[s];
+            var msgPayload = {
+              to: vb.cleanPhone,
+              from: senderDigits,
+              type: vb.msgType,
+              text: vb.message
+            };
+            if (vb.msgType === "LMS") {
+              msgPayload.subject = "[주누디자인 안내]";
+            }
+            solapiMessages.push(msgPayload);
           }
-        }
-      }
 
-      if (!updatedExisting) {
-        var nextRow = tplSheet.getLastRow() + 1;
-        tplSheet.getRange(nextRow, 1, 1, TEMPLATE_HEADERS_.length)
-          .setNumberFormat("@")
-          .setValues([rowValues]);
-      }
+          var solResp = UrlFetchApp.fetch("https://api.solapi.com/messages/v4/send-many/detail", {
+            method: "post",
+            contentType: "application/json",
+            headers: {
+              Authorization: buildSolapiAuthHeader_(apiKey, apiSecret)
+            },
+            payload: JSON.stringify({
+              messages: solapiMessages,
+              allowDuplicates: true
+            }),
+            muteHttpExceptions: true
+          });
 
-      return jsonOut_({
-        ok: true,
-        action: "saveTemplate",
-        id: tplId,
-        templates: readTemplates_(tplSheet),
-        message: updatedExisting ? "공용 상용구가 수정되었습니다." : "새 공용 상용구가 추가되었습니다."
-      });
-    }
+          var httpCode = solResp.getResponseCode();
+          var solText = solResp.getContentText();
+          var solJson = {};
+          try {
+            solJson = JSON.parse(solText);
+          } catch (je) {}
 
-    // 6-B) 공용 상용구 삭제
-    if (action === "deleteTemplate") {
-      var targetId = String(data.id || "").trim();
-      if (!targetId) {
-        return jsonOut_({
-          ok: false,
-          error: "MISSING_ID",
-          message: "삭제할 상용구 ID가 없습니다."
-        });
-      }
-
-      var tSheet = ensured.tplSheet;
-      var tLast = tSheet.getLastRow();
-      var deleted = false;
-      if (tLast > 1) {
-        var ids = tSheet.getRange(2, 1, tLast - 1, 1).getValues();
-        for (var dIdx = ids.length - 1; dIdx >= 0; dIdx--) {
-          if (String(ids[dIdx][0]).trim() === targetId) {
-            tSheet.deleteRow(dIdx + 2);
-            deleted = true;
-            break;
+          if (httpCode < 200 || httpCode >= 300) {
+            return jsonOut_({
+              ok: false,
+              error: "SOLAPI_HTTP_" + httpCode,
+              message: solJson.errorMessage || solJson.message || ("문자 서버 발송 오류 (HTTP " + httpCode + ")")
+            });
           }
+
+          groupId = String(solJson.groupId || (solJson.groupInfo && solJson.groupInfo.groupId) || "");
+          var failList = Array.isArray(solJson.failedMessageList) ? solJson.failedMessageList : [];
+          for (var f = 0; f < failList.length; f++) {
+            var fm = failList[f] || {};
+            var fTo = String(fm.to || "").replace(/\D/g, "");
+            if (fTo) {
+              failedByPhone[fTo] = String(fm.statusMessage || fm.reason || fm.statusCode || "발송실패");
+            }
+          }
+        } else {
+          groupId = "SIM_" + Date.now();
         }
-      }
 
-      if (!deleted) {
-        return jsonOut_({
-          ok: false,
-          error: "NOT_FOUND",
-          message: "삭제할 상용구를 찾을 수 없습니다."
-        });
-      }
+        // 발송 결과 시트 벌크 저장
+        var sentTime = nowKstStr_();
+        var logRowsToWrite = [];
+        var itemResults = [];
 
-      return jsonOut_({
-        ok: true,
-        action: "deleteTemplate",
-        id: targetId,
-        templates: readTemplates_(tSheet),
-        message: "공용 상용구가 삭제되었습니다."
-      });
-    }
+        for (var w = 0; w < validBatch.length; w++) {
+          var rowItem = validBatch[w];
+          var failReason = failedByPhone[rowItem.cleanPhone] || "";
+          var statusLabel = "";
+          var detailLabel = "";
 
-    // 6-C) 문자 / 카카오 알림톡 발송 (action === "send")
-    if (action === "send") {
-      var cleanReceiver = cleanDigits_(data.phone);
-      if (!/^01[016789]\d{7,8}$/.test(cleanReceiver) && !/^0\d{8,10}$/.test(cleanReceiver)) {
-        return jsonOut_({
-          ok: false,
-          error: "INVALID_PHONE",
-          message: "수신 고객 전화번호 형식이 올바르지 않습니다."
-        });
-      }
+          if (failReason) {
+            statusLabel = "실패";
+            detailLabel = failReason;
+            sentFailCount++;
+          } else if (isSimulation) {
+            statusLabel = "체험발송";
+            detailLabel = "솔라피 키 연결 전 시뮬레이션 기록";
+            sentSuccessCount++;
+            cacheSvc.put(rowItem.dupHashKey, "1", 60);
+          } else {
+            statusLabel = "발송접수";
+            detailLabel = "정상 접수 (053-267-3973)";
+            sentSuccessCount++;
+            cacheSvc.put(rowItem.dupHashKey, "1", 60);
+          }
 
-      var sendMode = String(data.mode || "SMS").trim().toUpperCase() === "ATA" ? "ATA" : "SMS";
-      var staff = String(data.staff || "주누디자인(공용)").trim();
-      var customerName = String(data.customerName || "").trim();
-      var templateTitle = String(data.templateTitle || (sendMode === "ATA" ? "카카오 알림톡" : "일반 문자")).trim();
-      var messageText = String(data.text || "").trim();
-      var messagePreview = String(data.messagePreview || messageText).trim();
-      var subjectText = String(data.subject || "").trim();
-      var trackingInfo = String(data.trackingInfo || "").trim();
-      var testMode = data.testMode === true;
+          var logId = "L" + Date.now() + "_" + (w + 1);
+          logRowsToWrite.push([
+            logId,
+            sentTime,
+            safeCell_(rowItem.formattedPhone),
+            safeCell_(rowItem.customerName),
+            safeCell_(rowItem.trackingNo),
+            rowItem.msgType,
+            String(rowItem.byteLen),
+            safeCell_(rowItem.message),
+            statusLabel,
+            safeCell_(detailLabel),
+            safeCell_(rowItem.source),
+            safeCell_(rowItem.refId),
+            groupId
+          ]);
 
-      if (sendMode === "SMS" && !messageText) {
-        return jsonOut_({
-          ok: false,
-          error: "EMPTY_MESSAGE",
-          message: "발송할 문자 내용을 입력해 주세요."
-        });
-      }
+          itemResults.push({
+            phone: rowItem.formattedPhone,
+            cleanPhone: rowItem.cleanPhone,
+            customerName: rowItem.customerName,
+            trackingNo: rowItem.trackingNo,
+            msgType: rowItem.msgType,
+            status: statusLabel,
+            detail: detailLabel
+          });
+        }
 
-      // 10초 이내 동일 고객번호 + 동일 내용 더블클릭 중복 발송 원천 차단
-      var dedupRaw = cleanReceiver + "|" + sendMode + "|" + messagePreview;
-      var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, dedupRaw);
-      var dedupKey = "dedup_" + Utilities.base64EncodeWebSafe(digest).slice(0, 32);
-      var cache = CacheService.getScriptCache();
-      if (cache.get(dedupKey)) {
-        return jsonOut_({
-          ok: false,
-          error: "DUPLICATE_WITHIN_10S",
-          message: "동일 번호·동일 내용으로 10초 이내 중복 발송 요청이 감지되어 자동 차단되었습니다."
-        });
-      }
+        if (logRowsToWrite.length > 0) {
+          var nextLogRow = db.logSheet.getLastRow() + 1;
+          db.logSheet.getRange(nextLogRow, 1, logRowsToWrite.length, LOG_HEADERS_.length)
+            .setNumberFormat("@")
+            .setValues(logRowsToWrite);
+        }
 
-      var apiKey = String(props.getProperty("SOLAPI_API_KEY") || "").trim();
-      var apiSecret = String(props.getProperty("SOLAPI_API_SECRET") || "").trim();
-      var cleanSender = cleanDigits_(props.getProperty("SENDER_PHONE") || DEFAULT_SENDER_DIGITS_) || DEFAULT_SENDER_DIGITS_;
-      var pfId = String(data.pfId || props.getProperty("SOLAPI_PF_ID") || "").trim();
-      var hasSolapi = Boolean(apiKey && apiSecret);
-
-      var sentAt = nowKst_();
-      var recordId = "MSG_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
-      var formattedPhone = formatKoreanPhone_(cleanReceiver);
-      var statusLabel = "";
-      var groupId = "";
-      var simulated = false;
-
-      if (testMode || !hasSolapi) {
-        // 과금 없는 테스트 시뮬레이션 모드
-        simulated = true;
-        statusLabel = testMode ? "테스트발송(과금0원)" : "체험기록(솔라피미연동)";
-        groupId = "SIM-" + Date.now();
-      } else {
-        // 실제 Solapi REST API v4 발송 호출
-        var solapiMessage = {
-          to: cleanReceiver,
-          from: cleanSender
+        var outObj = {
+          ok: true,
+          action: "send",
+          simulation: isSimulation,
+          groupId: groupId,
+          successCount: sentSuccessCount,
+          failCount: sentFailCount,
+          skippedCount: skippedItems.length,
+          skipped: skippedItems,
+          results: itemResults,
+          logs: readRecentLogs_(db.logSheet, 250)
         };
 
-        if (sendMode === "ATA") {
-          var templateId = String(data.templateId || "").trim();
-          if (!pfId) {
-            return jsonOut_({
-              ok: false,
-              error: "PFID_MISSING",
-              message: "카카오 비즈니스 채널 PFID가 설정되지 않았습니다. [서버·솔라피 설정]에서 PFID를 입력하거나 [회사번호 문자] 모드로 발송해 주세요."
-            });
-          }
-          if (!templateId) {
-            return jsonOut_({
-              ok: false,
-              error: "TEMPLATE_ID_MISSING",
-              message: "선택한 상용구에 승인된 카카오 알림톡 템플릿 코드(templateId)가 없습니다. 상용구 수정에서 템플릿 코드를 입력하거나 [회사번호 문자] 탭으로 발송해 주세요."
-            });
-          }
-
-          // 주의: Solapi v4 알림톡 발송 시 최상위 text 필드를 넣지 않고 kakaoOptions.variables만 전달
-          solapiMessage.kakaoOptions = {
-            pfId: pfId,
-            templateId: templateId,
-            variables: normalizeKakaoVariables_(data.variables || {}),
-            disableSms: data.disableSms === true ? true : false
-          };
-        } else {
-          solapiMessage.text = messageText;
-          if (subjectText) {
-            solapiMessage.subject = subjectText;
-          }
+        var outJsonStr = JSON.stringify(outObj);
+        if (requestId) {
+          cacheSvc.put("REQ_IDEMP_" + requestId, outJsonStr, 21600);
         }
-
-        var authHeader = buildSolapiAuthHeader_(apiKey, apiSecret);
-        var solapiResp = UrlFetchApp.fetch("https://api.solapi.com/messages/v4/send-many/detail", {
-          method: "post",
-          contentType: "application/json; charset=utf-8",
-          headers: {
-            Authorization: authHeader,
-            Accept: "application/json"
-          },
-          payload: JSON.stringify({ messages: [solapiMessage] }),
-          muteHttpExceptions: true
-        });
-
-        var httpCode = solapiResp.getResponseCode();
-        var respBody = solapiResp.getContentText();
-        var solapiJson = {};
-        try {
-          solapiJson = JSON.parse(respBody);
-        } catch (parseErr) {}
-
-        if (httpCode < 200 || httpCode >= 300) {
-          return jsonOut_({
-            ok: false,
-            error: "SOLAPI_HTTP_ERROR",
-            message: "솔라피 발송 오류 (" + httpCode + "): " + (solapiJson.errorMessage || solapiJson.message || respBody)
-          });
-        }
-
-        if (solapiJson.failedMessageList && solapiJson.failedMessageList.length > 0) {
-          var firstFail = solapiJson.failedMessageList[0];
-          return jsonOut_({
-            ok: false,
-            error: "SOLAPI_MESSAGE_REJECTED",
-            message: "솔라피 발송 거부: " + (firstFail.statusMessage || firstFail.reason || "발신번호/템플릿 설정을 확인해 주세요.")
-          });
-        }
-
-        groupId = (solapiJson.groupInfo && solapiJson.groupInfo.groupId)
-          ? String(solapiJson.groupInfo.groupId)
-          : String(solapiJson.groupId || "");
-        statusLabel = sendMode === "ATA" ? "알림톡발송성공" : "문자발송성공";
+        return ContentService.createTextOutput(outJsonStr).setMimeType(ContentService.MimeType.JSON);
+      } finally {
+        lockSend.releaseLock();
       }
-
-      // 10초 중복 방지 캐시 기록
-      cache.put(dedupKey, "1", 10);
-
-      // 발송내역 시트 저장 (문자열 포맷 강제로 010 앞자리 0 증발 원천 차단)
-      var hSheet = ensured.historySheet;
-      var newHRow = [
-        recordId,
-        sentAt,
-        safeCell_(staff),
-        safeCell_(customerName),
-        formattedPhone,
-        sendMode,
-        safeCell_(templateTitle),
-        safeCell_(messagePreview),
-        safeCell_(trackingInfo),
-        statusLabel,
-        groupId
-      ];
-      var targetRowIdx = hSheet.getLastRow() + 1;
-      hSheet.getRange(targetRowIdx, 1, 1, HISTORY_HEADERS_.length)
-        .setNumberFormat("@")
-        .setValues([newHRow]);
-
-      var recordObj = {
-        id: recordId,
-        sent_at: sentAt,
-        staff: staff,
-        customer_name: customerName,
-        phone: formattedPhone,
-        mode: sendMode,
-        template_title: templateTitle,
-        message_preview: messagePreview,
-        tracking_info: trackingInfo,
-        status: statusLabel,
-        group_id: groupId
-      };
-
-      return jsonOut_({
-        ok: true,
-        action: "send",
-        simulated: simulated,
-        record: recordObj,
-        message: simulated
-          ? "[테스트 발송 시뮬레이션] 실제 과금 없이 공용 발송대장에 정상 기록되었습니다."
-          : (sendMode === "ATA"
-              ? "카카오 알림톡 발송이 정상 접수되었습니다! (실패 시 회사번호 문자 자동대체)"
-              : "회사번호(" + formatKoreanPhone_(cleanSender) + ")로 문자가 즉시 발송되었습니다!")
-      });
     }
 
+    return jsonOut_({ ok: false, error: "UNKNOWN_ACTION", message: "지원하지 않는 요청입니다: " + action });
+  } catch (fatalErr) {
     return jsonOut_({
       ok: false,
-      error: "UNKNOWN_ACTION",
-      message: "지원하지 않는 요청 액션입니다: " + action
+      error: "SERVER_ERROR",
+      message: String(fatalErr && fatalErr.message ? fatalErr.message : fatalErr)
     });
-  } finally {
-    lock.releaseLock();
   }
 }
