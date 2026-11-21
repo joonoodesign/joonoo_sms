@@ -1,4 +1,4 @@
-const CACHE_NAME = 'joonoo-sms-v2.1';
+const CACHE_NAME = 'joonoo-sms-v2.2';
 const ASSETS = [
   './',
   './index.html',
@@ -24,7 +24,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET' || req.url.includes('script.google.com') || req.url.includes('googleusercontent.com')) {
+  if (req.method !== 'GET' || req.url.includes('script.google.com') || req.url.includes('googleusercontent.com') || req.url.includes('api.solapi.com')) {
     return;
   }
   event.respondWith(

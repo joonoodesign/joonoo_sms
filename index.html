@@ -1959,8 +1959,20 @@
             saveLocalJson(STORAGE_KEYS.localTemplates, state.templates);
             renderTemplates();
           }
-          if (Array.isArray(resp.logs)) {
-            state.logs = resp.logs;
+          if (Array.isArray(resp.logs) && resp.logs.length > 0) {
+            var seenIds = {};
+            var merged = [];
+            resp.logs.concat(state.logs || []).forEach(function (lg) {
+              var k = lg.id || (String(lg.sentAt || '') + '|' + String(lg.phone || '') + '|' + String(lg.message || '').slice(0, 20));
+              if (!seenIds[k]) {
+                seenIds[k] = true;
+                merged.push(lg);
+              }
+            });
+            merged.sort(function (a, b) {
+              return String(b.sentAt || '').localeCompare(String(a.sentAt || ''));
+            });
+            state.logs = merged.slice(0, 250);
             saveLocalJson(STORAGE_KEYS.localLogs, state.logs);
             renderLogs();
           }
