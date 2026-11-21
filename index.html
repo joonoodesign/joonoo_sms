@@ -659,7 +659,7 @@
       <input type="url" id="cfgScriptUrl" class="modal-input" value="https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec">
 
       <label class="modal-label">2. 사내 공용 PIN 비밀번호 (4자리 이상)</label>
-      <input type="password" id="cfgPin" class="modal-input" placeholder="사내 PIN 입력 (기기 자동 기억)">
+      <input type="text" id="cfgPin" class="modal-input" inputmode="numeric" autocomplete="off" placeholder="사내 PIN 입력 (예: 0329)">
 
       <hr style="border:none; border-top:1px solid var(--border); margin:16px 0;">
       <div style="font-size:13px; font-weight:800; margin-bottom:6px;">
@@ -670,10 +670,10 @@
       </div>
 
       <label class="modal-label">솔라피 API Key (최초 등록/변경 시에만 입력)</label>
-      <input type="text" id="cfgSolapiKey" class="modal-input" placeholder="이미 등록됨이면 비워두세요">
+      <input type="text" id="cfgSolapiKey" class="modal-input" autocomplete="off" placeholder="이미 등록됨이면 비워두세요">
 
       <label class="modal-label">솔라피 API Secret (최초 등록/변경 시에만 입력)</label>
-      <input type="password" id="cfgSolapiSecret" class="modal-input" placeholder="이미 등록됨이면 비워두세요">
+      <input type="password" id="cfgSolapiSecret" class="modal-input" autocomplete="new-password" placeholder="이미 등록됨이면 비워두세요">
 
       <label class="modal-label">고정 발신번호 (사전등록된 회사 대표번호)</label>
       <input type="text" id="cfgSenderPhone" class="modal-input" value="053-267-3973">
