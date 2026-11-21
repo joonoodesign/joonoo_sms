@@ -1937,6 +1937,12 @@
         }
         try {
           var resp = await SmsApiAdapter.request('init', { includeBalance: true });
+          if (resp.directCredentials && resp.directCredentials.apiKey && resp.directCredentials.apiSecret) {
+            state.solapiApiKey = resp.directCredentials.apiKey;
+            state.solapiApiSecret = resp.directCredentials.apiSecret;
+            localStorage.setItem(STORAGE_KEYS.solapiKey, state.solapiApiKey);
+            localStorage.setItem(STORAGE_KEYS.solapiSecret, state.solapiApiSecret);
+          }
           if (resp.config) {
             state.senderPhone = resp.config.senderPhone || '053-267-3973';
             state.senderDigits = resp.config.senderDigits || String(state.senderPhone).replace(/\D/g, '') || '0532673973';

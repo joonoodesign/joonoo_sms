@@ -666,10 +666,65 @@ function doPost(e) {
         ok: true,
         action: action,
         config: cfg,
+        directCredentials: cfg.hasSolapiKey ? {
+          apiKey: String(props.getProperty("SOLAPI_API_KEY") || "").trim(),
+          apiSecret: String(props.getProperty("SOLAPI_API_SECRET") || "").trim()
+        } : null,
         balance: balanceInfo,
         templates: templates,
         logs: logs
       });
+    }
+
+    // 2-1. 브라우저 직접 발송 내역 구글 시트 동기화 저장 (다중 PC 실시간 공유 & 중복발송 차단)
+    if (action === "recordLogs") {
+      var recResults = Array.isArray(data.results) ? data.results : [];
+      if (recResults.length === 0) {
+        return jsonOut_({ ok: true, action: "recordLogs", recordedCount: 0 });
+      }
+      var lockRec = LockService.getScriptLock();
+      if (!lockRec.tryLock(15000)) {
+        return jsonOut_({ ok: false, error: "BUSY", message: "발송 내역 기록 중입니다. 잠시 후 다시 시도해 주세요." });
+      }
+      try {
+        var recSheets = ensureLocalSheets_();
+        var logSheetRec = recSheets.logSheet;
+        var nowRec = nowKstStr_();
+        var appendRows = [];
+        for (var rIdx = 0; rIdx < recResults.length; rIdx++) {
+          var item = recResults[rIdx] || {};
+          var rowId = "dir_" + Utilities.getUuid().replace(/-/g, "").slice(0, 12);
+          appendRows.push([
+            rowId,
+            nowRec,
+            safeCell_(item.phone || ""),
+            safeCell_(item.customerName || ""),
+            safeCell_(item.trackingNo || ""),
+            safeCell_(item.msgType || "SMS"),
+            String(item.byteLen || 0),
+            safeCell_(item.message || ""),
+            safeCell_(item.status || "완료"),
+            safeCell_(item.detail || "직접발송"),
+            safeCell_(item.source || "manual"),
+            "",
+            safeCell_(item.groupId || "")
+          ]);
+        }
+        if (appendRows.length > 0) {
+          var startRowRec = logSheetRec.getLastRow() + 1;
+          logSheetRec.getRange(startRowRec, 1, appendRows.length, LOG_HEADERS_.length)
+            .setNumberFormat("@")
+            .setValues(appendRows);
+        }
+        return jsonOut_({
+          ok: true,
+          action: "recordLogs",
+          recordedCount: appendRows.length,
+          logs: readRecentLogs_(logSheetRec, 250)
+        });
+      } finally {
+        lockRec.releaseLock();
+      }
     }
 
     // 3. 잔액 단독 조회
