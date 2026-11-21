@@ -11,6 +11,7 @@ var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
 var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
+var SERVER_VERSION_ = "2.1";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -129,6 +130,10 @@ function sanitizeForEucKr_(text) {
        .replace(/☎|☎️|📞/g, "TEL:");
   // 서로게이트 페어(나머지 컬러 이모지) 제거
   s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "");
+  // 남은 변형선택자·키캡·ZWJ 제거 + EUC-KR에 없는 단일 기호 치환 (index.html과 동일 규칙)
+  s = s.replace(/[\uFE0E\uFE0F\u20E3\u200D]/g, "")
+       .replace(/❤/g, "♥").replace(/☺/g, "^^").replace(/[☑✔✓]/g, "[확인]").replace(/⚠/g, "[안내]")
+       .replace(/[❌✖]/g, "X").replace(/⭕/g, "○").replace(/✨/g, "*").replace(/•/g, "·");
   return s;
 }
 
@@ -152,7 +157,7 @@ function normalizeReceiverPhone_(raw) {
     return { valid: false, clean: "", formatted: orig, reason: "엑셀 지수깨짐(E+)", restoredZero: false, isSafeNum: false };
   }
 
-  var s = orig.replace(/^\+82[\s\-]?/, "0").replace(/^82[\s\-]/, "0");
+  var s = orig.replace(/^\+?82[\s\-]*(?:\(0\)[\s\-]*)?(?=[1-9]|0[1-9])0?/, "0");
   var digits = s.replace(/\D/g, "");
   var restoredZero = false;
 
@@ -195,12 +200,12 @@ function normalizeReceiverPhone_(raw) {
 function normalizeTrackingNo_(rawVal, displayVal) {
   var disp = String(displayVal == null ? "" : displayVal).trim();
   var rawStr = String(rawVal == null ? "" : rawVal).trim();
-  if (/e\+/i.test(disp)) {
-    return { valid: false, clean: "", reason: "송장 지수깨짐(E+)" };
-  }
   var candidate = disp || rawStr;
-  if (typeof rawVal === "number" && isFinite(rawVal)) {
+  // 숫자 셀은 원값으로 먼저 복원 (열이 좁아 화면에 4.64E+11로 보여도 정상 송장으로 인식)
+  if (typeof rawVal === "number" && isFinite(rawVal) && rawVal <= 9007199254740991) {
     candidate = rawVal.toFixed(0);
+  } else if (/e\+/i.test(disp)) {
+    return { valid: false, clean: "", reason: "송장 지수깨짐(E+)" };
   }
   // 소수점 .0 제거
   candidate = candidate.replace(/\.0+$/, "");
@@ -364,6 +369,8 @@ function buildSentIndex_(logSheet) {
     var r = vals[i];
     var status = String(r[8] || "");
     if (status.indexOf("실패") !== -1) continue;
+    // 과금 없는 테스트(체험발송) 기록은 '발송됨'으로 보지 않음 (단, 구버전 호환 직접발송 기록 DIRECT_SENT는 실제 발송)
+    if (status.indexOf("체험") !== -1 && String(r[11] || "") !== "DIRECT_SENT") continue;
     var sentAt = String(r[1] || "");
     var cleanPhone = String(r[2] || "").replace(/\D/g, "");
     var trackingRaw = String(r[4] || "").replace(/^'/, "");
@@ -470,6 +477,17 @@ function verifyPinWithRateLimit_(providedPin, expectedPin) {
   return { ok: true };
 }
 
+/**
+ * 1행이 제목줄(이름|전화번호|송장번호)인지 판별 — 실제 전화번호/송장 숫자가 들어있으면 제목줄 아님 ('김고객' 오탐 방지)
+ */
+function isDeliveryHeaderRow_(row) {
+  var cells = (row || []).slice(0, 6).map(function (v) { return String(v == null ? "" : v).replace(/\s+/g, ""); });
+  for (var i = 0; i < cells.length; i++) {
+    if (normalizeReceiverPhone_(cells[i]).valid || /^\d{9,16}$/.test(cells[i])) return false;
+  }
+  return /이름|성명|수령인|받는분|고객명|전화|연락처|휴대폰|송장|운송장|등기/.test(cells.join("|"));
+}
+
 function readDeliverySheetRows_(logSheet) {
   var deliverySheet = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
   var lastRow = deliverySheet.getLastRow();
@@ -487,23 +505,14 @@ function readDeliverySheetRows_(logSheet) {
   var trackCol = 2;
   var startIdx = 0;
 
-  if (dispVals.length > 0) {
-    var h0 = String(dispVals[0][0] || "").replace(/\s+/g, "");
-    var h1 = String(dispVals[0][1] || "").replace(/\s+/g, "");
-    var h2 = String(dispVals[0][2] || "").replace(/\s+/g, "");
-    var looksLikeHeader =
-      /이름|성명|수령인|받는분|고객/.test(h0 + h1 + h2) ||
-      /전화|연락처|휴대폰|번호/.test(h0 + h1 + h2) ||
-      /송장|운송장|등기/.test(h0 + h1 + h2);
-
-    if (looksLikeHeader) {
-      startIdx = 1;
-      for (var c = 0; c < dispVals[0].length; c++) {
-        var hc = String(dispVals[0][c] || "").replace(/\s+/g, "");
-        if (/이름|성명|수령인|받는분성명|고객명/.test(hc)) nameCol = c;
-        else if (/전화|휴대폰|연락처|핸드폰/.test(hc)) phoneCol = c;
-        else if (/송장|운송장|등기번호/.test(hc)) trackCol = c;
-      }
+  if (dispVals.length > 0 && isDeliveryHeaderRow_(dispVals[0])) {
+    startIdx = 1;
+    var foundName = false, foundPhone = false, foundTrack = false; // 열마다 최초 1회만 매칭 (D열 '운송장상태' 등이 덮어쓰지 않게)
+    for (var c = 0; c < dispVals[0].length; c++) {
+      var hc = String(dispVals[0][c] || "").replace(/\s+/g, "");
+      if (!foundName && /이름|성명|수령인|받는분성명|고객명/.test(hc)) { nameCol = c; foundName = true; }
+      else if (!foundPhone && /전화|휴대폰|연락처|핸드폰/.test(hc)) { phoneCol = c; foundPhone = true; }
+      else if (!foundTrack && /송장|운송장|등기번호/.test(hc)) { trackCol = c; foundTrack = true; }
     }
   }
 
@@ -558,7 +567,7 @@ function doGet() {
   return jsonOut_({
     ok: true,
     service: "joonoo_sms",
-    version: "2.0",
+    version: SERVER_VERSION_,
     sender: "053-267-3973"
   });
 }
@@ -639,6 +648,7 @@ function doPost(e) {
           config: getMaskedConfig_()
         });
       } finally {
+        SpreadsheetApp.flush();
         lockCfg.releaseLock();
       }
     }
@@ -665,6 +675,7 @@ function doPost(e) {
       return jsonOut_({
         ok: true,
         action: action,
+        serverVersion: SERVER_VERSION_,
         config: cfg,
         directCredentials: cfg.hasSolapiKey ? {
           apiKey: String(props.getProperty("SOLAPI_API_KEY") || "").trim(),
@@ -706,7 +717,7 @@ function doPost(e) {
             safeCell_(item.status || "완료"),
             safeCell_(item.detail || "직접발송"),
             safeCell_(item.source || "manual"),
-            "",
+            safeCell_(item.refId || "DIRECT_SENT"),
             safeCell_(item.groupId || "")
           ]);
         }
@@ -723,6 +734,7 @@ function doPost(e) {
           logs: readRecentLogs_(logSheetRec, 250)
         });
       } finally {
+        SpreadsheetApp.flush();
         lockRec.releaseLock();
       }
     }
@@ -788,6 +800,7 @@ function doPost(e) {
           templates: readTemplates_(tplSheet)
         });
       } finally {
+        SpreadsheetApp.flush();
         lockTpl.releaseLock();
       }
     }
@@ -821,6 +834,7 @@ function doPost(e) {
           templates: readTemplates_(sTpl)
         });
       } finally {
+        SpreadsheetApp.flush();
         lockDel.releaseLock();
       }
     }
@@ -902,6 +916,7 @@ function doPost(e) {
           rows: refreshed.rows
         });
       } finally {
+        SpreadsheetApp.flush();
         lockClr.releaseLock();
       }
     }
@@ -919,10 +934,15 @@ function doPost(e) {
         }
         var lastRowAll = dSheetAll.getLastRow();
         var removedAll = 0;
-        if (lastRowAll > 1) {
-          removedAll = lastRowAll - 1;
-          var maxColAll = Math.max(3, dSheetAll.getLastColumn());
-          dSheetAll.getRange(2, 1, lastRowAll - 1, maxColAll).clearContent();
+        if (lastRowAll >= 1) {
+          // 1행이 제목줄이면 2행부터, 제목줄이 없으면 1행부터 전부 비움 (이름만 있는 불완전 행도 100% 삭제)
+          var maxColAll = Math.min(dSheetAll.getMaxColumns(), Math.max(3, dSheetAll.getLastColumn()));
+          var firstRowVals = dSheetAll.getRange(1, 1, 1, maxColAll).getDisplayValues()[0];
+          var fromRow = isDeliveryHeaderRow_(firstRowVals) ? 2 : 1;
+          if (lastRowAll >= fromRow) {
+            removedAll = lastRowAll - fromRow + 1;
+            dSheetAll.getRange(fromRow, 1, removedAll, maxColAll).clearContent();
+          }
         }
         return jsonOut_({
           ok: true,
@@ -932,6 +952,7 @@ function doPost(e) {
           rows: []
         });
       } finally {
+        SpreadsheetApp.flush();
         lockAll.releaseLock();
       }
     }
@@ -1114,7 +1135,10 @@ function doPost(e) {
             var fm = failList[f] || {};
             var fTo = String(fm.to || "").replace(/\D/g, "");
             if (fTo) {
-              failedByPhone[fTo] = String(fm.statusMessage || fm.reason || fm.statusCode || "발송실패");
+              var fReason = String(fm.statusMessage || fm.reason || fm.statusCode || "발송실패");
+              // 같은 번호에 여러 통을 보낸 경우 본문(text)으로 정확히 구분
+              if (fm.text) { failedByPhone[fTo + "|" + fm.text] = fReason; failedByPhone["T|" + fTo] = true; }
+              else failedByPhone[fTo] = fReason;
             }
           }
         } else {
@@ -1128,7 +1152,9 @@ function doPost(e) {
 
         for (var w = 0; w < validBatch.length; w++) {
           var rowItem = validBatch[w];
-          var failReason = failedByPhone[rowItem.cleanPhone] || "";
+          var failReason = failedByPhone["T|" + rowItem.cleanPhone]
+            ? (failedByPhone[rowItem.cleanPhone + "|" + rowItem.message] || "")
+            : (failedByPhone[rowItem.cleanPhone] || "");
           var statusLabel = "";
           var detailLabel = "";
 
@@ -1143,7 +1169,7 @@ function doPost(e) {
             cacheSvc.put(rowItem.dupHashKey, "1", 60);
           } else {
             statusLabel = "발송접수";
-            detailLabel = "정상 접수 (053-267-3973)";
+            detailLabel = "정상 접수 (" + formatSenderDisplay_(senderDigits) + ")";
             sentSuccessCount++;
             cacheSvc.put(rowItem.dupHashKey, "1", 60);
           }
@@ -1202,6 +1228,7 @@ function doPost(e) {
         }
         return ContentService.createTextOutput(outJsonStr).setMimeType(ContentService.MimeType.JSON);
       } finally {
+        SpreadsheetApp.flush();
         lockSend.releaseLock();
       }
     }

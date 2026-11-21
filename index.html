@@ -468,7 +468,7 @@
         <span class="sender-pill" id="senderBadge">발신고정: 053-267-3973</span>
       </div>
       <div class="header-actions">
-        <span class="balance-badge" id="balanceBadge">🧪 체험 모드 (설정 전)</span>
+        <button type="button" class="balance-badge" id="balanceBadge" style="cursor:pointer; border:none; font:inherit;">🔒 PIN 입력 필요</button>
         <button type="button" class="h-btn gold" id="btnInstallPwa" style="display:none;">💻 앱 설치</button>
         <button type="button" class="h-btn" id="btnHardRefresh" title="앱 최신버전 새로고침">🔄 새로고침</button>
         <button type="button" class="h-btn" id="btnFontCycle" title="글자 크기 변경">가+</button>
@@ -519,7 +519,7 @@
           </div>
 
           <!-- 당일 중복 발송 1줄 미니 알림 (팝업 없음) -->
-          <div class="inline-notice warn" id="dupTodayNotice"></div>
+          <div class="inline-notice warn" id="dupTodayNotice" style="display:none;"></div>
 
           <textarea id="singleMsgInput" class="msg-box" placeholder="보내실 문자 내용을 입력하거나 왼쪽 상용구 버튼을 눌러주세요."></textarea>
 
@@ -529,7 +529,7 @@
           </div>
 
           <!-- 이모지 정제 / 스팸 주의어 1줄 알림 -->
-          <div class="inline-notice warn" id="spamOrEmojiNotice"></div>
+          <div class="inline-notice warn" id="spamOrEmojiNotice" style="display:none;"></div>
 
           <button type="button" class="btn-send-main" id="btnSendSingle">
             🚀 주누디자인(053-267-3973)으로 문자 보내기
@@ -559,12 +559,12 @@
           <div>
             <h2 class="card-title">📦 구글 시트 『배송데이터』 출고 문자 발송</h2>
             <div style="font-size:13px; color:var(--text-sub); margin-top:3px;">
-              <strong>1) 시트 불러오기</strong> → <strong>2) 문자 발송 (실패 건 자동 표시)</strong> → <strong>3) 삭제(시트 비우기)</strong> 순서로 간단히 끝납니다.
+              <strong>① 시트 불러오기</strong> → <strong>② 문자 발송 (실패 건 빨간색 표시)</strong> → <strong>③ 시트 깨끗하게 비우기</strong> 순서로 끝납니다.
             </div>
           </div>
           <div style="display:flex; gap:7px; flex-wrap:wrap;">
-            <button type="button" class="btn-sub primary-outline" id="btnLoadDeliverySheet">🔄 시트 불러오기</button>
-            <button type="button" class="btn-sub" id="btnClearSentDelivery" style="color:var(--err); border-color:#fca5a5;">🗑️ 시트 깨끗하게 비우기</button>
+            <button type="button" class="btn-sub primary-outline" id="btnLoadDeliverySheet">① 시트 불러오기</button>
+            <button type="button" class="btn-sub" id="btnClearSentDelivery" style="color:var(--err); border-color:#fca5a5;">③ 시트 깨끗하게 비우기</button>
             <button type="button" class="btn-sub" id="btnToggleManualImport">📂 파일·복붙</button>
           </div>
         </div>
@@ -577,7 +577,6 @@
               <input type="file" id="excelFileInput" accept=".csv,.tsv,.txt,.xls,.xlsx" style="display:none;">
             </label>
             <button type="button" class="btn-sub" id="btnDownloadSampleXls">📥 표준 서식(.xls 텍스트고정) 다운로드</button>
-            <button type="button" class="btn-sub" id="btnLoadDemoRows">🧪 샘플 4건 체험 채우기</button>
           </div>
           <textarea id="pasteTsvInput" class="modal-input" style="height:76px; padding:8px;" placeholder="또는 엑셀/시트에서 [이름 | 전화번호 | 송장번호] 영역을 복사(Ctrl+C)해 여기에 붙여넣기(Ctrl+V) 하세요."></textarea>
         </div>
@@ -588,9 +587,6 @@
           <button type="button" class="preset-btn" id="btnPresetSms">⚡ 초절약 송장 단문 (SMS · 18원)</button>
           <label style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:5px; cursor:pointer; margin-left:auto;">
             <input type="checkbox" id="chkMergeMultiTrack" checked> 같은 번호 다중 송장 1통으로 합치기
-          </label>
-          <label style="font-size:13px; font-weight:700; display:none; align-items:center; gap:5px; cursor:pointer;">
-            <input type="checkbox" id="chkSkipAlreadySent"> 이미 보낸 송장 자동 제외
           </label>
         </div>
 
@@ -620,7 +616,7 @@
             <tbody id="deliveryTableBody">
               <tr>
                 <td colspan="6" style="text-align:center; padding:28px; color:var(--text-sub);">
-                  상단 <strong>[🔄 시트 『배송데이터』 불러오기]</strong> 버튼을 누르면 명단이 자동으로 표시됩니다.
+                  상단 <strong>[① 시트 불러오기]</strong> 버튼을 누르면 명단이 자동으로 표시됩니다.
                 </td>
               </tr>
             </tbody>
@@ -629,12 +625,25 @@
 
         <div style="margin-top:14px;">
           <button type="button" class="btn-send-main" id="btnSendDeliveryBulk" disabled>
-            🚀 선택된 고객에게 송장 문자 일괄 발송하기
+            ② 선택된 고객에게 송장 문자 일괄 발송하기
           </button>
         </div>
       </div>
     </section>
   </main>
+
+  <!-- 모달 0: 사내 PIN 입력 (PIN 없으면 앱 시작 즉시 표시 · 체험모드로 몰래 넘어가지 않음) -->
+  <div class="modal-backdrop" id="modalPin">
+    <div class="modal-card" style="max-width:380px; text-align:center;">
+      <h3 style="margin:0 0 6px;">🔒 사내 PIN 비밀번호 입력</h3>
+      <div id="pinModalMsg" style="font-size:14px; color:var(--text-sub); margin-bottom:12px; line-height:1.5;">
+        회사 컴퓨터와 같은 데이터(상용구·발송내역·배송데이터)를 보려면<br>사내 PIN을 한 번만 입력해 주세요.
+      </div>
+      <input type="password" id="pinModalInput" class="modal-input" inputmode="numeric" autocomplete="off" placeholder="PIN 4자리" style="text-align:center; font-size:22px; letter-spacing:6px; height:52px;">
+      <button type="button" class="btn-send-main" id="btnPinModalOk" style="margin-top:12px;">🔓 연결하기</button>
+      <button type="button" class="btn-sub" id="btnPinModalClose" style="margin-top:8px; width:100%;">나중에</button>
+    </div>
+  </div>
 
   <!-- 모달 1: 상용구 추가 -->
   <div class="modal-backdrop" id="modalAddTpl">
@@ -773,17 +782,11 @@
         sms: '[주누디자인] {이름}님 한진택배 {송장번호} 출고되었습니다. 문의 053-267-3973'
       };
 
-      var DEMO_DELIVERY_ROWS = [
-        { customerName: '차황대', rawPhone: '010-4761-8585', rawTracking: '463819195044' },
-        { customerName: '김영주', rawPhone: '0502-5487-6844', rawTracking: '463819195055' },
-        { customerName: '남송열', rawPhone: '1035152695', rawTracking: '463819195070' },
-        { customerName: '차황대', rawPhone: '010-4761-8585', rawTracking: '463819195099' }
-      ];
-
       /* =========================================================
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
       var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
+      var APP_VERSION = 'v3.0'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
 
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
@@ -802,7 +805,11 @@
         lastSentKeys: [],
         currentPreset: localStorage.getItem(STORAGE_KEYS.deliveryPreset) || 'lms',
         deferredInstallPrompt: null,
-        confirmCallback: null
+        confirmCallback: null,
+        sending: false,
+        ipBlocked: false,
+        manualCheck: {},
+        lastSyncAt: 0
       };
 
       var SolapiDirectClient = {
@@ -840,12 +847,14 @@
           var messages = items.map(function (it) {
             var toDigits = String(it.phone || '').replace(/\D/g, '');
             var byteLen = calcEucKrBytes(it.message);
-            return {
+            var m = {
               to: toDigits,
               from: sender,
               text: it.message,
               type: byteLen <= 90 ? 'SMS' : 'LMS'
             };
+            if (m.type === 'LMS') m.subject = '[주누디자인 안내]';
+            return m;
           });
           var res = await fetch('https://api.solapi.com/messages/v4/send-many/detail', {
             method: 'POST',
@@ -858,21 +867,28 @@
               messages: messages
             })
           });
-          var parsed = await res.json();
+          var parsed = {};
+          try { parsed = await res.json(); } catch (e) {}
           if (!res.ok) {
-            throw new Error(parsed.errorMessage || parsed.message || ('솔라피 발송 오류 (HTTP ' + res.status + ')'));
+            var sendErr = new Error(parsed.errorMessage || parsed.message || ('솔라피 발송 오류 (HTTP ' + res.status + ')'));
+            sendErr.httpStatus = res.status;
+            sendErr.code = parsed.errorCode || '';
+            throw sendErr;
           }
           var failedMap = {};
+          var textKeyed = {};
           (parsed.failedMessageList || []).forEach(function (fm) {
             var k = String(fm.to || '').replace(/\D/g, '');
-            failedMap[k] = fm.statusMessage || fm.reason || fm.statusCode || '발송실패';
+            var reason = fm.statusMessage || fm.reason || fm.statusCode || '발송실패';
+            if (fm.text) { failedMap[k + '|' + fm.text] = reason; textKeyed[k] = true; } // 같은 번호 여러 통이면 본문으로 정확히 구분
+            else failedMap[k] = reason;
           });
           var groupId = (parsed.groupInfo && (parsed.groupInfo.groupId || parsed.groupInfo._id)) || '';
           var successCount = 0;
           var failCount = 0;
           var results = items.map(function (it) {
             var cleanPhone = String(it.phone || '').replace(/\D/g, '');
-            var failReason = failedMap[cleanPhone] || '';
+            var failReason = textKeyed[cleanPhone] ? (failedMap[cleanPhone + '|' + it.message] || '') : (failedMap[cleanPhone] || '');
             var ok = !failReason;
             if (ok) successCount++; else failCount++;
             var byteLen = calcEucKrBytes(it.message);
@@ -927,7 +943,17 @@
               throw new Error('서버 응답 형식이 올바르지 않습니다. 웹앱 배포 권한(모든 사용자)을 확인해 주세요.');
             }
             if (!parsed.ok) {
-              throw new Error(parsed.message || ('요청 처리 실패 (' + (parsed.error || 'ERROR') + ')'));
+              var apiErr = new Error(parsed.message || ('요청 처리 실패 (' + (parsed.error || 'ERROR') + ')'));
+              apiErr.code = parsed.error || '';
+              apiErr.data = parsed;
+              // PIN이 틀리면 저장된 PIN을 즉시 지우고 입력창 표시 (틀린 PIN 자동 재시도로 전 직원 10분 잠금 방지)
+              if (apiErr.code === 'INVALID_PIN' || apiErr.code === 'PIN_NOT_CONFIGURED') {
+                state.pin = '';
+                localStorage.removeItem(STORAGE_KEYS.pin);
+                renderHeaderStatus();
+                openPinModal('⚠️ ' + apiErr.message);
+              }
+              throw apiErr;
             }
             return parsed;
           } finally {
@@ -981,6 +1007,10 @@
              .replace(/⚠️/g, '[안내]')
              .replace(/☎|☎️|📞/g, 'TEL:');
         s = s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+        // 남은 변형선택자·키캡·ZWJ 제거 + EUC-KR에 없는 단일 기호를 안전 기호로 치환 (통신사 '?' 깨짐 방지)
+        s = s.replace(/[\uFE0E\uFE0F\u20E3\u200D]/g, '')
+             .replace(/❤/g, '♥').replace(/☺/g, '^^').replace(/[☑✔✓]/g, '[확인]').replace(/⚠/g, '[안내]')
+             .replace(/[❌✖]/g, 'X').replace(/⭕/g, '○').replace(/✨/g, '*').replace(/•/g, '·');
         if (s !== before) hadEmoji = true;
         return { text: s, hadEmoji: hadEmoji };
       }
@@ -1014,7 +1044,7 @@
         if (/e\+/i.test(orig)) {
           return { valid: false, clean: '', formatted: orig, reason: '엑셀 지수깨짐(E+)', restoredZero: false, isSafeNum: false };
         }
-        var s = orig.replace(/^\+82[\s\-]?/, '0').replace(/^82[\s\-]/, '0');
+        var s = orig.replace(/^\+?82[\s\-]*(?:\(0\)[\s\-]*)?(?=[1-9]|0[1-9])0?/, '0');
         var digits = s.replace(/\D/g, '');
         var restoredZero = false;
 
@@ -1065,38 +1095,96 @@
         document.getElementById('confirmTitle').textContent = title;
         document.getElementById('confirmBody').textContent = bodyText;
         state.confirmCallback = onConfirm;
+        // onConfirm이 없으면 '안내창'(확인 버튼 1개)으로 사용
+        document.getElementById('btnConfirmCancel').style.display = onConfirm ? '' : 'none';
+        document.getElementById('btnConfirmOk').textContent = onConfirm ? '확인 실행' : '확인';
         document.getElementById('modalConfirm').classList.add('open');
       }
 
+      function openPinModal(msg) {
+        document.getElementById('modalSettings').classList.remove('open');
+        if (msg) document.getElementById('pinModalMsg').textContent = msg;
+        var inp = document.getElementById('pinModalInput');
+        inp.value = '';
+        document.getElementById('modalPin').classList.add('open');
+        setTimeout(function () { inp.focus(); }, 50);
+      }
+
+      function isIpError(err) {
+        var probe = String((err && err.message) || err || '') + ' ' + String((err && err.code) || '');
+        return /\bIP\b|IP주소|아이피|허용되지|AllowedIp|not allowed|whitelist|Forbidden/i.test(probe) || Boolean(err && err.httpStatus === 403);
+      }
+
+      // 솔라피/서버 오류 → 직원이 바로 이해하는 한국어 설명 (특히 휴대폰 LTE/5G의 솔라피 허용 IP 차단)
+      function explainSendError(err) {
+        var raw = String((err && err.message) || err || '');
+        if (isIpError(err)) {
+          return '📵 지금 연결된 인터넷 주소(IP)에서는 문자 발송이 막혀 있습니다.\n\n' +
+            '솔라피 보안 설정상 [회사 인터넷 IP]에서만 발송이 허용되어 있어, 휴대폰 데이터(LTE/5G)·외부 와이파이·구글 서버 경유 발송은 차단됩니다.\n\n' +
+            '✅ 해결 방법\n① 휴대폰을 회사 와이파이에 연결 후 다시 보내기\n② 회사 PC에서 보내기\n③ (관리자 1회) 솔라피 콘솔 → API Key → 허용 IP 제한 해제\n\n' +
+            '※ 이 건은 발송되지 않았고 요금도 차감되지 않았습니다.\n(원문: ' + raw + ')';
+        }
+        if (/Failed to fetch|NetworkError|Load failed|aborted/i.test(raw)) {
+          return '📶 인터넷 연결이 불안정해 요청이 끝까지 전달되지 않았습니다.\n최근 발송내역을 확인한 뒤 다시 시도해 주세요.\n(원문: ' + raw + ')';
+        }
+        return raw;
+      }
+
+      // 발송 결과를 (번호|개별 송장) 단위로 저장 → '다중 송장 합치기' 켜기/끄기·시트 재불러오기에도 실패 표시 유지
+      function markSendResult(cleanPhone, trackingStr, status, detail) {
+        var ph = String(cleanPhone || '').replace(/\D/g, '');
+        String(trackingStr || '').split(/[,\s/]+/).forEach(function (part) {
+          var d = part.replace(/\D/g, '');
+          if (ph && d) state.rowSendResult[ph + '|' + d] = { status: status, detail: detail || '' };
+        });
+      }
+
+      function sendResOf(item) {
+        var found = null;
+        (item.trackingList || []).forEach(function (t) {
+          var r = state.rowSendResult[(item.cleanPhone || '') + '|' + t];
+          if (r && (!found || r.status === '실패')) found = r;
+        });
+        return found;
+      }
+
+      function isFailedItem(item) {
+        var r = sendResOf(item);
+        return Boolean(r && r.status === '실패' && !item.isSent);
+      }
+
+      // KST(UTC+9) 고정: 해외/서머타임 기기에서도 1시간 오차 없음
+      function kstParts() {
+        var k = new Date(Date.now() + 9 * 3600000);
+        var p2 = function (n) { return String(n).padStart(2, '0'); };
+        return {
+          date: k.getUTCFullYear() + '-' + p2(k.getUTCMonth() + 1) + '-' + p2(k.getUTCDate()),
+          time: p2(k.getUTCHours()) + ':' + p2(k.getUTCMinutes()) + ':' + p2(k.getUTCSeconds())
+        };
+      }
+
       function todayDatePrefix() {
-        var now = new Date();
-        var kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
-        var y = kst.getFullYear();
-        var m = String(kst.getMonth() + 1).padStart(2, '0');
-        var d = String(kst.getDate()).padStart(2, '0');
-        return y + '-' + m + '-' + d;
+        return kstParts().date;
       }
 
       function nowKstFormatted() {
-        var now = new Date();
-        var kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
-        var m = String(kst.getMonth() + 1).padStart(2, '0');
-        var d = String(kst.getDate()).padStart(2, '0');
-        var hh = String(kst.getHours()).padStart(2, '0');
-        var mm = String(kst.getMinutes()).padStart(2, '0');
-        var ss = String(kst.getSeconds()).padStart(2, '0');
-        return kst.getFullYear() + '-' + m + '-' + d + ' ' + hh + ':' + mm + ':' + ss;
+        var p = kstParts();
+        return p.date + ' ' + p.time;
       }
 
       /* =========================================================
          4. 화면 렌더링 (상단 상태, 상용구, 바이트, 최근내역, 배송테이블)
          ========================================================= */
       function renderHeaderStatus() {
-        document.getElementById('senderBadge').textContent = '발신고정: ' + state.senderPhone;
+        document.getElementById('senderBadge').textContent = '발신고정: ' + state.senderPhone + ' · ' + APP_VERSION;
         document.getElementById('senderInlineText').textContent = '주누디자인 (' + state.senderPhone + ')';
+        var sendBtn = document.getElementById('btnSendSingle');
+        if (!sendBtn.disabled) sendBtn.textContent = '🚀 주누디자인(' + state.senderPhone + ')으로 문자 보내기';
         var badge = document.getElementById('balanceBadge');
         if (!SmsApiAdapter.isConnected()) {
-          badge.textContent = '🧪 체험 모드 (설정 전)';
+          badge.textContent = '🔒 PIN 입력 필요 (눌러서 연결)';
+        } else if (state.ipBlocked) {
+          badge.textContent = '📵 이 인터넷에선 발송 차단 (눌러서 안내)';
         } else if (!state.hasSolapiKey) {
           badge.textContent = '🔗 시트 연결됨 (솔라피 미등록)';
         } else if (state.availableBalance != null) {
@@ -1168,16 +1256,17 @@
         }
       }
 
-      function updateSingleMessageMeta() {
+      function updateSingleMessageMeta(isComposing) {
         var textarea = document.getElementById('singleMsgInput');
         var sanitized = sanitizeForEucKr(textarea.value);
-        if (sanitized.hadEmoji) {
+        // 한글 조합 중에는 입력창을 덮어쓰지 않음 (자모 깨짐 방지)
+        if (sanitized.hadEmoji && isComposing !== true) {
           var pos = textarea.selectionStart;
           textarea.value = sanitized.text;
           try { textarea.setSelectionRange(pos, pos); } catch (e) {}
         }
 
-        var bytes = calcEucKrBytes(textarea.value);
+        var bytes = calcEucKrBytes(sanitized.text); // 실제 발송 텍스트 기준 바이트
         var pill = document.getElementById('singleBytePill');
         if (bytes <= 90) {
           pill.className = 'byte-pill';
@@ -1277,7 +1366,9 @@
       function buildSentPairSetFromLocalLogs() {
         var map = {};
         state.logs.forEach(function (lg) {
-          if (String(lg.status || '').indexOf('실패') !== -1) return;
+          var st = String(lg.status || '');
+          if (st.indexOf('실패') !== -1) return;
+          if (st.indexOf('체험') !== -1 && lg.refId !== 'DIRECT_SENT') return; // 과금 없는 테스트 기록은 '발송됨' 아님
           var ph = String(lg.phone || '').replace(/\D/g, '');
           var tr = String(lg.trackingNo || '');
           if (!ph || !tr) return;
@@ -1302,7 +1393,6 @@
 
       function recomputeDeliveryItems() {
         var mergeMulti = document.getElementById('chkMergeMultiTrack').checked;
-        var skipSent = document.getElementById('chkSkipAlreadySent').checked;
         var tplText = document.getElementById('deliveryTplInput').value;
         var localSentMap = buildSentPairSetFromLocalLogs();
 
@@ -1314,7 +1404,9 @@
             ? { valid: r.trackingValid, clean: r.trackingNo, reason: r.trackingReason }
             : normalizeTracking(r.rawTracking);
           var pairKey = (p.clean || '') + '|' + (t.clean || '');
-          var sentAt = r.alreadySentAt || localSentMap[pairKey] || '';
+          var sessRes = state.rowSendResult[pairKey];
+          // 발송완료 판정 = 서버(전 직원 공용 기록) + 이 기기 발송내역 + 방금 발송 결과 (PC·휴대폰 동일)
+          var sentAt = (p.valid && t.valid) ? (r.alreadySentAt || localSentMap[pairKey] || (sessRes && sessRes.status === '완료' ? '방금' : '')) : '';
           return {
             customerName: String(r.customerName || '').trim(),
             phoneObj: p,
@@ -1327,8 +1419,9 @@
         var phoneGroupIndex = {};
 
         normalizedList.forEach(function (entry) {
-          if (mergeMulti && entry.phoneObj.valid && entry.trackObj.valid && !entry.alreadySentAt) {
-            var gKey = entry.phoneObj.clean;
+          if (mergeMulti && entry.phoneObj.valid && entry.trackObj.valid) {
+            // 발송완료끼리 / 미발송끼리만 합침 → 발송 직후에도 1행이 2행으로 쪼개지지 않음
+            var gKey = entry.phoneObj.clean + (entry.alreadySentAt ? '|sent' : '');
             if (phoneGroupIndex[gKey] !== undefined) {
               var existing = grouped[phoneGroupIndex[gKey]];
               if (existing.trackingList.indexOf(entry.trackObj.clean) === -1) {
@@ -1362,10 +1455,14 @@
           }
           var msgType = byteLen <= 90 ? 'SMS' : 'LMS';
           var unitCost = msgType === 'SMS' ? 18 : 45;
-          var checked = !hasError && !(skipSent && isSent);
+          var rowKey = (g.phoneObj.clean || '') + '|' + g.trackingList.join(',');
+          // 기본: 발송완료 건은 자동 체크 해제(이중과금 방지). 직원이 직접 바꾼 체크는 문구 수정·재계산에도 유지
+          var manual = state.manualCheck[rowKey];
+          var checked = !hasError && (manual !== undefined ? manual : !isSent);
 
           return {
             idx: idx,
+            rowKey: rowKey,
             checked: checked,
             hasError: hasError,
             errReason: errReason,
@@ -1400,9 +1497,8 @@
 
         state.computedDeliveryItems.forEach(function (item) {
           var tr = document.createElement('tr');
-          var rKey = (item.cleanPhone || '') + '|' + (item.trackingDisplay || '');
-          var sendRes = state.rowSendResult[rKey] || null;
-          var isSendFailed = Boolean(sendRes && sendRes.status === '실패');
+          var sendRes = sendResOf(item);
+          var isSendFailed = isFailedItem(item);
 
           if (item.hasError || isSendFailed) {
             tr.style.background = 'var(--err-bg)';
@@ -1417,6 +1513,7 @@
           chk.disabled = item.hasError;
           chk.addEventListener('change', function () {
             item.checked = chk.checked;
+            state.manualCheck[item.rowKey] = chk.checked;
             if (!item.hasError && !isSendFailed) {
               tr.className = !item.checked ? 'row-disabled' : '';
             }
@@ -1424,8 +1521,12 @@
           });
           tdChk.appendChild(chk);
 
+          // 휴대폰 좁은 화면에서도 가로 스크롤 없이 상태가 보이도록 이름 칸에 상태 뱃지 동시 표시
           var tdName = document.createElement('td');
-          tdName.innerHTML = '<strong>' + escapeHtml(item.customerName || '(이름없음)') + '</strong>';
+          var nameBadge = item.hasError ? '<span class="tag err">❌ 오류</span>'
+            : (isSendFailed ? '<span class="tag err">❌ 실패</span>'
+            : (item.isSent ? '<span class="tag ok">✅ 완료</span>' : ''));
+          tdName.innerHTML = '<strong>' + escapeHtml(item.customerName || '(이름없음)') + '</strong>' + (nameBadge ? '<div>' + nameBadge + '</div>' : '');
 
           var tdPhone = document.createElement('td');
           var phoneHtml = escapeHtml(item.formattedPhone || '-');
@@ -1455,7 +1556,7 @@
             tdPreview.innerHTML = '<span class="tag err">❌ 발송불가: ' + escapeHtml(item.errReason) + '</span>';
           } else if (isSendFailed) {
             tdPreview.innerHTML = '<span class="tag err">❌ 발송실패: ' + escapeHtml(sendRes.detail || '번호 확인 필요') + '</span> <span style="font-size:12px; color:var(--text-sub);">' + escapeHtml(item.message.slice(0, 45)) + '...</span>';
-          } else if ((sendRes && sendRes.status === '완료') || item.isSent) {
+          } else if (item.isSent) {
             tdPreview.innerHTML = '<span class="tag ok">✅ 발송완료</span> <span style="font-size:12px; color:var(--text-sub);">' + escapeHtml(item.message.slice(0, 52)) + '...</span>';
           } else {
             tdPreview.style.fontSize = '13px';
@@ -1476,23 +1577,19 @@
 
       function updateDeliverySummary() {
         var total = state.computedDeliveryItems.length;
-        var selected = state.computedDeliveryItems.filter(function (i) { return i.checked && !i.hasError; });
-        var sentCount = state.computedDeliveryItems.filter(function (i) {
-          var rk = (i.cleanPhone || '') + '|' + (i.trackingDisplay || '');
-          return i.isSent || (state.rowSendResult[rk] && state.rowSendResult[rk].status === '완료');
-        }).length;
-        var problemItems = state.computedDeliveryItems.filter(function (i) {
-          var rk = (i.cleanPhone || '') + '|' + (i.trackingDisplay || '');
-          return i.hasError || (state.rowSendResult[rk] && state.rowSendResult[rk].status === '실패');
-        });
+        var selectable = state.computedDeliveryItems.filter(function (i) { return !i.hasError; });
+        var selected = selectable.filter(function (i) { return i.checked; });
+        var sentCount = state.computedDeliveryItems.filter(function (i) { return i.isSent; }).length;
+        var problemItems = state.computedDeliveryItems.filter(function (i) { return i.hasError || isFailedItem(i); });
         var totalCost = selected.reduce(function (acc, cur) { return acc + cur.unitCost; }, 0);
+        document.getElementById('chkAllDelivery').checked = selectable.length > 0 && selected.length === selectable.length;
 
         var failBanner = document.getElementById('deliveryFailBanner');
         if (problemItems.length > 0) {
           var names = problemItems.slice(0, 6).map(function (p) {
-            var rk = (p.cleanPhone || '') + '|' + (p.trackingDisplay || '');
-            var reason = p.hasError ? p.errReason : (state.rowSendResult[rk] ? state.rowSendResult[rk].detail : '실패');
-            return (p.customerName || '(이름없음)') + '(' + reason + ')';
+            var r = sendResOf(p);
+            var reason = p.hasError ? p.errReason : (r ? r.detail : '실패');
+            return (p.customerName || '(이름없음)') + ' ' + (p.formattedPhone || '') + '(' + reason + ')';
           }).join(', ');
           failBanner.textContent = '🚨 발송 실패·오류 ' + problemItems.length + '건 확인 필요: ' + names + (problemItems.length > 6 ? ' 외 ' + (problemItems.length - 6) + '건' : '');
           failBanner.style.display = 'block';
@@ -1507,15 +1604,11 @@
           (problemItems.length ? ' · ❌ 오류/실패 ' + problemItems.length + '건' : '');
 
         var sendBtn = document.getElementById('btnSendDeliveryBulk');
+        if (state.sending) return; // 발송 중에는 진행률 문구 유지
         sendBtn.disabled = selected.length === 0;
         sendBtn.textContent = selected.length > 0
-          ? '🚀 선택된 ' + selected.length + '건 문자 일괄 발송하기 (약 ' + totalCost.toLocaleString() + '원)'
-          : '🚀 발송할 대상을 선택해 주세요';
-
-        var clearBtn = document.getElementById('btnClearSentDelivery');
-        clearBtn.style.display = 'inline-block';
-        clearBtn.disabled = false;
-        clearBtn.textContent = '🗑️ 시트 깨끗하게 비우기';
+          ? '② 선택된 ' + selected.length + '건 문자 일괄 발송하기 (약 ' + totalCost.toLocaleString() + '원)'
+          : '② 발송할 대상을 선택해 주세요';
       }
 
       async function syncDirectLogsToServer(results) {
@@ -1528,7 +1621,9 @@
           }
           return;
         } catch (err) {
-          // recordLogs 미배포 구버전 GAS 호환: testMode=true + refId='DIRECT_SENT'로 구글 시트 문자발송내역에 즉시 영구 기록 (이중 과금 0원)
+          // recordLogs가 없는 구버전 GAS일 때만 호환 기록 (BUSY/네트워크 오류 때 폴백하면 기록이 2중으로 쌓임)
+          if (err.code !== 'UNKNOWN_ACTION') return;
+          // testMode=true + refId='DIRECT_SENT'로 구글 시트 문자발송내역에 영구 기록 (이중 과금 0원)
           var okItems = results.filter(function (r) { return r.status !== '실패'; }).map(function (r) {
             return {
               phone: r.phone,
@@ -1559,6 +1654,12 @@
          6. 액션 핸들러 (단건발송, 다건발송, 시트연동, 상용구 추가/삭제)
          ========================================================= */
       async function handleSendSingle() {
+        var btn = document.getElementById('btnSendSingle');
+        if (btn.disabled) return; // Ctrl+Enter 연타 이중 발송 차단
+        if (!SmsApiAdapter.isConnected()) {
+          openPinModal('문자를 보내려면 사내 PIN을 먼저 입력해 주세요.');
+          return;
+        }
         var rawPhone = document.getElementById('singlePhoneInput').value;
         var customerName = document.getElementById('singleNameInput').value.trim();
         var rawMsg = document.getElementById('singleMsgInput').value;
@@ -1581,7 +1682,6 @@
           return;
         }
 
-        var btn = document.getElementById('btnSendSingle');
         var origLabel = btn.textContent;
         btn.disabled = true;
         btn.textContent = '⏳ 전송 처리 중...';
@@ -1595,11 +1695,10 @@
               message: cleanMsg,
               source: 'manual'
             }]);
-            var nowStr = nowKstFormatted();
             var r0 = directResp.results[0] || {};
             state.logs.unshift({
               id: 'dir_' + Date.now(),
-              sentAt: nowStr,
+              sentAt: nowKstFormatted(),
               phone: p.formatted,
               customerName: customerName,
               trackingNo: '',
@@ -1610,7 +1709,8 @@
               resultDetail: r0.detail || ''
             });
             saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
-            syncDirectLogsToServer(directResp.results);
+            renderLogs();
+            await syncDirectLogsToServer(directResp.results); // 서버 기록 완료 후 서버 내역으로 일원화 (중복 0)
             if (directResp.failCount > 0) {
               showToast('❌ 발송 실패: ' + (r0.detail || '번호 확인 필요'));
             } else {
@@ -1620,7 +1720,7 @@
               document.getElementById('dupTodayNotice').style.display = 'none';
               refreshBalanceQuietly();
             }
-          } else if (SmsApiAdapter.isConnected()) {
+          } else {
             var resp = await SmsApiAdapter.request('send', {
               requestId: makeRequestId(),
               testMode: testMode,
@@ -1638,56 +1738,48 @@
             if (resp.failCount > 0) {
               showToast('❌ 발송 실패: ' + (resp.results[0] && resp.results[0].detail ? resp.results[0].detail : '번호 확인 필요'));
             } else {
-              showToast(resp.simulation ? '🧪 체험 발송 기록 완료!' : '✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
+              showToast(resp.simulation ? '🧪 테스트 기록 완료 (실제 발송·과금 없음)' : '✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
               document.getElementById('singlePhoneInput').value = '';
               document.getElementById('singleNameInput').value = '';
               document.getElementById('dupTodayNotice').style.display = 'none';
               refreshBalanceQuietly();
             }
-          } else {
-            // 서버 연결 전 로컬 체험 기록
-            state.logs.unshift({
-              id: 'local_' + Date.now(),
-              sentAt: nowKstFormatted(),
-              phone: p.formatted,
-              customerName: customerName,
-              trackingNo: '',
-              msgType: bytes <= 90 ? 'SMS' : 'LMS',
-              byteLen: bytes,
-              message: cleanMsg,
-              status: '체험발송'
-            });
-            saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 200));
-            showToast('🧪 [체험 모드] 발송 내역에 기록되었습니다. 실발송은 우측 상단 [⚙️ 설정]을 연결해 주세요.');
           }
           renderLogs();
         } catch (err) {
-          showToast('❌ ' + err.message);
+          reportSendError(err);
         } finally {
           btn.disabled = false;
           btn.textContent = origLabel;
+          renderHeaderStatus();
+        }
+      }
+
+      function reportSendError(err) {
+        if (isIpError(err)) {
+          state.ipBlocked = true;
+          renderHeaderStatus();
+          openConfirmModal('📵 문자 발송 차단 안내', explainSendError(err), null);
+        } else {
+          showToast('❌ ' + explainSendError(err));
         }
       }
 
       async function handleLoadDeliveryFromSheet() {
+        if (!SmsApiAdapter.isConnected()) {
+          openPinModal('『배송데이터』 시트를 불러오려면 사내 PIN을 먼저 입력해 주세요.');
+          return;
+        }
         var btn = document.getElementById('btnLoadDeliverySheet');
         var orig = btn.textContent;
         btn.disabled = true;
         btn.textContent = '⏳ 불러오는 중...';
         try {
-          state.rowSendResult = {};
-          if (SmsApiAdapter.isConnected()) {
-            var resp = await SmsApiAdapter.request('loadDeliverySheet', {});
-            state.rawDeliveryRows = (resp.rows || []).map(function (r) {
-              return Object.assign({}, r, { alreadySentAt: '' });
-            });
-            recomputeDeliveryItems();
-            showToast('✅ 『배송데이터』 탭에서 ' + state.rawDeliveryRows.length + '건을 불러왔습니다.');
-          } else {
-            state.rawDeliveryRows = DEMO_DELIVERY_ROWS.slice();
-            recomputeDeliveryItems();
-            showToast('🧪 서버 연결 전이므로 체험용 배송데이터 4건을 불러왔습니다.');
-          }
+          // 발송 결과(실패 표시)는 유지: 다시 불러와도 빨간 실패 표시가 사라지지 않음 (비우기 때만 초기화)
+          var resp = await SmsApiAdapter.request('loadDeliverySheet', {});
+          state.rawDeliveryRows = resp.rows || [];
+          recomputeDeliveryItems();
+          showToast('✅ 『배송데이터』 탭에서 ' + state.rawDeliveryRows.length + '건을 불러왔습니다.');
         } catch (err) {
           showToast('❌ 불러오기 실패: ' + err.message);
         } finally {
@@ -1698,7 +1790,12 @@
 
       function handleConfirmAndSendBulk() {
         var targets = state.computedDeliveryItems.filter(function (i) { return i.checked && !i.hasError; });
-        if (targets.length === 0) return;
+        if (targets.length === 0 || state.sending) return;
+        if (!SmsApiAdapter.isConnected()) {
+          openPinModal('문자를 보내려면 사내 PIN을 먼저 입력해 주세요.');
+          return;
+        }
+        var resendCount = targets.filter(function (t) { return t.isSent; }).length;
 
         var totalCost = targets.reduce(function (s, x) { return s + x.unitCost; }, 0);
         if (SmsApiAdapter.isConnected() && state.hasSolapiKey && state.availableBalance != null && !document.getElementById('chkTestMode').checked) {
@@ -1712,7 +1809,8 @@
           '📦 택배 출고 문자 일괄 발송 확인',
           '• 발송 인원: 총 ' + targets.length + '명\n' +
           '• 발신 번호: 주누디자인 (' + state.senderPhone + ')\n' +
-          '• 예상 비용: 약 ' + totalCost.toLocaleString() + '원\n\n' +
+          '• 예상 비용: 약 ' + totalCost.toLocaleString() + '원\n' +
+          (resendCount ? '• ⚠️ 이미 발송완료된 ' + resendCount + '명에게 다시 보냅니다 (직접 체크한 건)\n' : '') + '\n' +
           '선택된 고객에게 출고 안내 문자를 지금 일괄 발송하시겠습니까?',
           function () { executeBulkSend(targets); }
         );
@@ -1720,168 +1818,151 @@
 
       async function executeBulkSend(targets) {
         var btn = document.getElementById('btnSendDeliveryBulk');
+        state.sending = true;
         btn.disabled = true;
         var testMode = document.getElementById('chkTestMode').checked;
-        var skipAlreadySent = document.getElementById('chkSkipAlreadySent').checked;
-
+        var useDirect = !testMode && SolapiDirectClient.isReady();
+        // 직원이 '발송완료' 행을 직접 다시 체크한 경우에만 서버 중복차단 해제 (그 외엔 항상 이중발송 차단)
+        var skipAlreadySent = !targets.some(function (t) { return t.isSent; });
         var totalSuccess = 0;
         var totalFail = 0;
         var chunkSize = 100;
+        var current = [];
+
+        function remember(results) {
+          (results || []).forEach(function (r) {
+            var ph = r.cleanPhone || String(r.phone || '').replace(/\D/g, '');
+            var failed = String(r.status || '').indexOf('실패') !== -1;
+            markSendResult(ph, r.trackingNo, failed ? '실패' : (testMode ? '테스트' : '완료'), r.detail);
+            if (!failed && !testMode) {
+              String(r.trackingNo || '').split(/[,\s/]+/).forEach(function (part) {
+                var d = part.replace(/\D/g, '');
+                if (ph && d) state.lastSentKeys.push(ph + '|' + d);
+              });
+            }
+          });
+        }
+
+        function rememberSkipped(skipped) {
+          (skipped || []).forEach(function (s) {
+            if (String(s.reason || '').indexOf('이미 발송') !== -1) return; // 이미 보낸 건은 '완료'로 표시됨
+            var ph = String(s.phone || '').replace(/\D/g, '');
+            current.forEach(function (t) {
+              if (t.cleanPhone === ph) markSendResult(ph, t.trackingDisplay, '실패', s.reason || '발송 제외');
+            });
+          });
+        }
 
         try {
-          if (!testMode && SolapiDirectClient.isReady()) {
-            for (var dOff = 0; dOff < targets.length; dOff += chunkSize) {
-              var dSlice = targets.slice(dOff, dOff + chunkSize);
-              btn.textContent = '⏳ 직접 일괄 발송 중... (' + Math.min(dOff + dSlice.length, targets.length) + ' / ' + targets.length + '명)';
-              var dPayloadItems = dSlice.map(function (t) {
-                return {
-                  phone: t.formattedPhone,
-                  customerName: t.customerName,
-                  trackingNo: t.trackingDisplay,
-                  message: t.message,
-                  source: 'delivery'
-                };
-              });
-              var dResp = await SolapiDirectClient.sendMany(dPayloadItems);
+          for (var off = 0; off < targets.length; off += chunkSize) {
+            current = targets.slice(off, off + chunkSize);
+            btn.textContent = '⏳ 발송 중... (' + Math.min(off + current.length, targets.length) + ' / ' + targets.length + '명)';
+            var items = current.map(function (t) {
+              return { phone: t.formattedPhone, customerName: t.customerName, trackingNo: t.trackingDisplay, message: t.message, source: 'delivery' };
+            });
+
+            if (useDirect) {
+              var dResp = await SolapiDirectClient.sendMany(items);
               totalSuccess += Number(dResp.successCount || 0);
               totalFail += Number(dResp.failCount || 0);
+              remember(dResp.results);
               var nowBulkStr = nowKstFormatted();
-              (dResp.results || []).forEach(function (r, rIdx) {
-                var rKey = (r.cleanPhone || '') + '|' + (r.trackingNo || '');
-                state.rowSendResult[rKey] = { status: r.status, detail: r.detail };
+              dResp.results.forEach(function (r, i) {
                 state.logs.unshift({
-                  id: 'dir_b_' + Date.now() + '_' + rIdx,
-                  sentAt: nowBulkStr,
-                  phone: r.phone,
-                  customerName: r.customerName,
-                  trackingNo: r.trackingNo,
-                  msgType: r.msgType,
-                  byteLen: r.byteLen,
-                  message: r.message,
-                  status: r.status,
-                  resultDetail: r.detail
+                  id: 'dir_b_' + Date.now() + '_' + i, sentAt: nowBulkStr, phone: r.phone, customerName: r.customerName,
+                  trackingNo: r.trackingNo, msgType: r.msgType, byteLen: r.byteLen, message: r.message, status: r.status, resultDetail: r.detail
                 });
-                if (r.status !== '실패' && r.cleanPhone && r.trackingNo) {
-                  r.trackingNo.split(/[,\s/]+/).forEach(function (part) {
-                    var d = part.replace(/\D/g, '');
-                    if (d) state.lastSentKeys.push(r.cleanPhone + '|' + d);
-                  });
-                }
               });
               saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
               await syncDirectLogsToServer(dResp.results);
-            }
-            refreshBalanceQuietly();
-          } else if (SmsApiAdapter.isConnected()) {
-            for (var offset = 0; offset < targets.length; offset += chunkSize) {
-              var slice = targets.slice(offset, offset + chunkSize);
-              btn.textContent = '⏳ 일괄 발송 중... (' + Math.min(offset + slice.length, targets.length) + ' / ' + targets.length + '명)';
-
-              var payloadItems = slice.map(function (t) {
-                return {
-                  phone: t.formattedPhone,
-                  customerName: t.customerName,
-                  trackingNo: t.trackingDisplay,
-                  message: t.message,
-                  source: 'delivery'
-                };
-              });
-
+            } else {
               var resp = await SmsApiAdapter.request('send', {
                 requestId: makeRequestId(),
                 testMode: testMode,
                 skipAlreadySent: skipAlreadySent,
-                items: payloadItems
+                items: items
               });
-
               totalSuccess += Number(resp.successCount || 0);
               totalFail += Number(resp.failCount || 0);
               if (Array.isArray(resp.logs)) {
                 state.logs = resp.logs;
                 saveLocalJson(STORAGE_KEYS.localLogs, state.logs);
               }
-              (resp.results || []).forEach(function (r) {
-                if (r.status !== '실패' && r.cleanPhone && r.trackingNo) {
-                  r.trackingNo.split(/[,\s/]+/).forEach(function (part) {
-                    var d = part.replace(/\D/g, '');
-                    if (d) state.lastSentKeys.push(r.cleanPhone + '|' + d);
-                  });
-                }
-              });
+              remember(resp.results);
+              rememberSkipped(resp.skipped);
+              totalFail += (resp.skipped || []).length;
             }
-            refreshBalanceQuietly();
-          } else {
-            var nowStr = nowKstFormatted();
-            targets.forEach(function (t) {
-              state.logs.unshift({
-                id: 'local_b_' + Date.now() + '_' + t.idx,
-                sentAt: nowStr,
-                phone: t.formattedPhone,
-                customerName: t.customerName,
-                trackingNo: t.trackingDisplay,
-                msgType: t.msgType,
-                byteLen: t.byteLen,
-                message: t.message,
-                status: '체험발송'
-              });
-              t.trackingList.forEach(function (trNo) {
-                state.lastSentKeys.push(t.cleanPhone + '|' + trNo);
-              });
-              totalSuccess++;
-            });
-            saveLocalJson(STORAGE_KEYS.localLogs, state.logs.slice(0, 250));
           }
-
+          if (!testMode) refreshBalanceQuietly();
+          showToast((testMode ? '🧪 테스트 기록 완료 (실제 발송 없음)! ' : '✅ 발송 완료! ') + '성공 ' + totalSuccess + '건' + (totalFail > 0 ? ' / 실패·제외 ' + totalFail + '건 (빨간색 표시)' : ''));
+        } catch (err) {
+          if (err.data && err.data.skipped) {
+            rememberSkipped(err.data.skipped); // 서버가 전부 제외(ALL_SKIPPED)한 경우 사유 표시
+          } else {
+            // 요청 자체가 거부된 묶음(허용 IP 차단·네트워크 등)은 실패로 빨간 표시 → 화면에서 바로 확인
+            var shortReason = isIpError(err) ? '허용 IP 차단 (회사 와이파이/PC에서 발송)' : explainSendError(err).split('\n')[0];
+            current.forEach(function (t) { markSendResult(t.cleanPhone, t.trackingDisplay, '실패', shortReason); });
+          }
+          reportSendError(err);
+        } finally {
+          state.sending = false;
+          targets.forEach(function (t) { delete state.manualCheck[t.rowKey]; });
           renderLogs();
           recomputeDeliveryItems();
-          showToast('✅ 발송 완료! 성공 ' + totalSuccess + '건' + (totalFail > 0 ? ' / 실패 ' + totalFail + '건' : ''));
-        } catch (err) {
-          showToast('❌ 일괄 발송 중 오류: ' + err.message);
-          updateDeliverySummary();
         }
       }
 
       function handleClearSentFromDeliverySheet() {
+        var notDone = state.computedDeliveryItems.filter(function (i) { return !i.isSent; }).length;
         openConfirmModal(
           '🗑️ 『배송데이터』 시트 깨끗하게 비우기',
-          '• 1행 제목(이름 | 전화번호 | 송장번호)만 남기고 2행부터 아래 명단을 모두 깨끗하게 지웁니다.\n\n' +
-          '지금 『배송데이터』 탭을 비우시겠습니까?',
+          '• 1행 제목(이름 | 전화번호 | 송장번호)만 남기고 아래 명단을 모두 지웁니다.\n' +
+          (notDone ? '• ⚠️ 아직 발송 안 됨·실패·오류 ' + notDone + '건도 함께 지워집니다.\n' : '') +
+          '\n지금 『배송데이터』 탭을 비우시겠습니까?',
           async function () {
-            if (!SmsApiAdapter.isConnected()) {
-              state.rawDeliveryRows = [];
-              state.rowSendResult = {};
+            function resetLocal(rows) {
               state.lastSentKeys = [];
+              state.rowSendResult = {};
+              state.manualCheck = {};
+              state.rawDeliveryRows = rows || [];
               recomputeDeliveryItems();
-              showToast('🗑️ 목록을 깨끗하게 비웠습니다.');
+            }
+            if (!SmsApiAdapter.isConnected()) { // PIN 연결 전 '파일·복붙'으로 넣은 화면 목록만 비움
+              resetLocal([]);
+              showToast('🗑️ 화면 목록을 비웠습니다.');
               return;
             }
+            var btn = document.getElementById('btnClearSentDelivery');
+            btn.disabled = true;
             try {
               var resp;
               try {
                 resp = await SmsApiAdapter.request('clearDeliveryAll', {});
               } catch (eAll) {
-                // 구버전 GAS 호환: 현재 시트의 모든 유효 (번호|송장) 키를 전달하여 일괄 삭제
+                if (eAll.code !== 'UNKNOWN_ACTION') throw eAll; // PIN 오류·BUSY·네트워크는 그대로 안내
+                // 구버전 GAS(v1) 호환: 시트의 모든 유효 (번호|송장) 키를 전달해 지울 수 있는 행은 모두 삭제
                 var everyRowKey = [];
                 state.rawDeliveryRows.forEach(function (r) {
                   var ph = String(r.cleanPhone || '').trim() || normalizePhone(r.rawPhone).clean;
                   var tr = String(r.trackingNo || '').trim() || normalizeTracking(r.rawTracking).clean;
                   if (ph && tr) everyRowKey.push(ph + '|' + tr);
                 });
-                resp = await SmsApiAdapter.request('clearDeliverySent', {
-                  sentKeys: everyRowKey.concat(state.lastSentKeys || [])
-                });
+                resp = await SmsApiAdapter.request('clearDeliverySent', { sentKeys: everyRowKey.concat(state.lastSentKeys || []) });
               }
-              state.lastSentKeys = [];
-              state.rowSendResult = {};
-              state.rawDeliveryRows = (resp && resp.rows) ? resp.rows : [];
-              recomputeDeliveryItems();
+              resetLocal(resp && resp.rows);
               if (state.rawDeliveryRows.length > 0) {
-                showToast('⚠️ 전화번호 없는 빈 행 ' + state.rawDeliveryRows.length + '건은 시트에서 직접 지워주세요 (내일 스크립트 업데이트 시 자동 삭제됨)');
+                var left = state.rawDeliveryRows.slice(0, 5).map(function (r) { return r.customerName || '(이름없음)'; }).join(', ');
+                openConfirmModal('⚠️ ' + state.rawDeliveryRows.length + '개 행이 시트에 남았습니다',
+                  '현재 구글 서버 스크립트가 구버전(v1)이라 전화번호·송장번호가 비어있는 행(' + left + ')은 지우지 못합니다.\n\n' +
+                  '✅ 해결(관리자 1회): 새 Code.gs를 Apps Script에 붙여넣고 [배포 → 배포 관리 → ✏️ → 새 버전 → 배포]를 누르면 다음부터 한 번에 깨끗하게 지워집니다.\n\n' +
+                  '지금은 시트에서 해당 행을 직접 지워 주세요.', null);
               } else {
                 showToast('🗑️ 『배송데이터』 시트를 깨끗하게 비웠습니다!');
               }
             } catch (err) {
               showToast('❌ 시트 비우기 실패: ' + err.message);
+            } finally {
+              btn.disabled = false;
             }
           }
         );
@@ -1901,20 +1982,16 @@
           return;
         }
 
+        if (!SmsApiAdapter.isConnected()) {
+          openPinModal('상용구는 전 직원 공용이라 사내 PIN 연결 후 저장할 수 있습니다.');
+          return;
+        }
         try {
-          if (SmsApiAdapter.isConnected()) {
-            var resp = await SmsApiAdapter.request('saveTemplate', {
-              title: cleanTitle,
-              body: cleanBody
-            });
-            state.templates = resp.templates || state.templates;
-          } else {
-            state.templates.push({
-              id: 'tpl_' + Date.now(),
-              title: cleanTitle,
-              body: cleanBody
-            });
-          }
+          var resp = await SmsApiAdapter.request('saveTemplate', {
+            title: cleanTitle,
+            body: cleanBody
+          });
+          state.templates = resp.templates || state.templates;
           saveLocalJson(STORAGE_KEYS.localTemplates, state.templates);
           renderTemplates();
           document.getElementById('modalAddTpl').classList.remove('open');
@@ -1927,17 +2004,17 @@
       }
 
       function handleDeleteTemplate(id, title) {
+        if (!SmsApiAdapter.isConnected()) {
+          openPinModal('상용구는 전 직원 공용이라 사내 PIN 연결 후 삭제할 수 있습니다.');
+          return;
+        }
         openConfirmModal(
           '상용구 삭제 확인',
           '『' + title + '』 상용구를 공용 목록에서 삭제하시겠습니까?',
           async function () {
             try {
-              if (SmsApiAdapter.isConnected()) {
-                var resp = await SmsApiAdapter.request('deleteTemplate', { id: id });
-                state.templates = resp.templates || [];
-              } else {
-                state.templates = state.templates.filter(function (t) { return t.id !== id; });
-              }
+              var resp = await SmsApiAdapter.request('deleteTemplate', { id: id });
+              state.templates = resp.templates || [];
               saveLocalJson(STORAGE_KEYS.localTemplates, state.templates);
               renderTemplates();
               showToast('🗑️ 삭제되었습니다.');
@@ -2026,18 +2103,28 @@
       /* =========================================================
          8. 서버 동기화 및 설정 연결
          ========================================================= */
-      async function syncWithServer(silent) {
+      // opts.skipDelivery: 앱 복귀(visibilitychange) 자동 동기화 시 배송 목록(체크 상태)은 건드리지 않음
+      async function syncWithServer(silent, opts) {
+        opts = opts || {};
         if (!SmsApiAdapter.isConnected()) {
           renderHeaderStatus();
-          return;
+          if (!silent) openPinModal();
+          return false;
         }
         try {
           var resp = await SmsApiAdapter.request('init', { includeBalance: true });
+          state.lastSyncAt = Date.now();
           if (resp.directCredentials && resp.directCredentials.apiKey && resp.directCredentials.apiSecret) {
             state.solapiApiKey = resp.directCredentials.apiKey;
             state.solapiApiSecret = resp.directCredentials.apiSecret;
             localStorage.setItem(STORAGE_KEYS.solapiKey, state.solapiApiKey);
             localStorage.setItem(STORAGE_KEYS.solapiSecret, state.solapiApiSecret);
+          } else if (resp.config && resp.config.hasSolapiKey === false) {
+            // 서버에서 키가 삭제됐으면 이 기기의 옛 키도 제거
+            state.solapiApiKey = '';
+            state.solapiApiSecret = '';
+            localStorage.removeItem(STORAGE_KEYS.solapiKey);
+            localStorage.removeItem(STORAGE_KEYS.solapiSecret);
           }
           if (resp.config) {
             state.senderPhone = resp.config.senderPhone || '053-267-3973';
@@ -2051,40 +2138,41 @@
               ? '(현재 연동됨: ' + (resp.config.maskedApiKey || '등록완료') + ')'
               : '(솔라피 키 미등록)';
           }
-          if (resp.balance && resp.balance.availableTotal !== undefined) {
+          // 발송 가능 여부 사전 점검: 이 기기가 직접 발송하면 이 기기 IP로, 아니면 구글 서버 IP로 잔액 조회 결과 확인
+          state.ipBlocked = false;
+          if (SolapiDirectClient.isReady()) {
+            try { state.availableBalance = await SolapiDirectClient.fetchBalance(); } catch (e) { state.ipBlocked = isIpError(e); }
+          } else if (resp.balance && resp.balance.availableTotal !== undefined) {
             state.availableBalance = resp.balance.availableTotal;
-          } else if (SolapiDirectClient.isReady()) {
-            try { state.availableBalance = await SolapiDirectClient.fetchBalance(); } catch (e) {}
+          } else if (resp.balance && resp.balance.error) {
+            state.ipBlocked = isIpError(resp.balance.error);
           }
-          if (Array.isArray(resp.templates) && resp.templates.length > 0) {
+          // 서버 = 전 직원 공용 단일 원본: PC·휴대폰이 항상 같은 상용구/발송내역을 보도록 그대로 교체 (빈 목록 포함)
+          if (Array.isArray(resp.templates)) {
             state.templates = resp.templates;
             saveLocalJson(STORAGE_KEYS.localTemplates, state.templates);
             renderTemplates();
           }
-          if (Array.isArray(resp.logs) && resp.logs.length > 0) {
-            var seenIds = {};
-            var merged = [];
-            resp.logs.concat(state.logs || []).forEach(function (lg) {
-              var k = lg.id || (String(lg.sentAt || '') + '|' + String(lg.phone || '') + '|' + String(lg.message || '').slice(0, 20));
-              if (!seenIds[k]) {
-                seenIds[k] = true;
-                merged.push(lg);
-              }
-            });
-            merged.sort(function (a, b) {
-              return String(b.sentAt || '').localeCompare(String(a.sentAt || ''));
-            });
-            state.logs = merged.slice(0, 250);
+          if (Array.isArray(resp.logs)) {
+            state.logs = resp.logs;
             saveLocalJson(STORAGE_KEYS.localLogs, state.logs);
             renderLogs();
+            checkSingleDuplicateToday();
           }
           renderHeaderStatus();
           if (document.getElementById('panelDelivery').classList.contains('active')) {
-            handleLoadDeliveryFromSheet();
+            if (!opts.skipDelivery && state.rawDeliveryRows.length === 0) handleLoadDeliveryFromSheet();
+            else recomputeDeliveryItems(); // 최신 발송내역 기준으로 ✅완료 표시만 갱신
           }
-          if (!silent) showToast('✅ 서버 동기화 완료!');
+          if (!resp.serverVersion && !silent) {
+            showToast('ℹ️ 서버 스크립트가 구버전입니다. 새 Code.gs로 [새 버전 배포]하면 시트 비우기·휴대폰 발송이 완전해집니다.');
+          } else if (!silent) {
+            showToast('✅ 서버 동기화 완료!');
+          }
+          return true;
         } catch (err) {
           if (!silent) showToast('❌ 연결 오류: ' + err.message);
+          return false;
         }
       }
 
@@ -2092,6 +2180,7 @@
         try {
           if (SolapiDirectClient.isReady()) {
             state.availableBalance = await SolapiDirectClient.fetchBalance();
+            state.ipBlocked = false;
             renderHeaderStatus();
             return;
           }
@@ -2101,7 +2190,9 @@
             state.availableBalance = resp.balance.availableTotal;
             renderHeaderStatus();
           }
-        } catch (e) {}
+        } catch (e) {
+          if (isIpError(e)) { state.ipBlocked = true; renderHeaderStatus(); }
+        }
       }
 
       /* =========================================================
@@ -2195,7 +2286,10 @@
               }
             }
           } catch (e) {}
-          window.location.replace(window.location.pathname + '?v=' + Date.now());
+          // 기존 쿼리(?embed=1 등)는 유지하고 v만 갱신 → 브라우저 HTTP 캐시까지 우회 (부팅 시 v는 주소창에서 자동 정리)
+          var q = new URLSearchParams(window.location.search);
+          q.set('v', Date.now());
+          window.location.replace(window.location.pathname + '?' + q.toString());
         });
 
         document.getElementById('btnThemeToggle').addEventListener('click', function () {
@@ -2250,7 +2344,8 @@
         });
 
         var msgEl = document.getElementById('singleMsgInput');
-        msgEl.addEventListener('input', updateSingleMessageMeta);
+        msgEl.addEventListener('input', function (e) { updateSingleMessageMeta(e && e.isComposing); });
+        msgEl.addEventListener('compositionend', function () { updateSingleMessageMeta(false); });
         msgEl.addEventListener('keydown', function (e) {
           if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
             e.preventDefault();
@@ -2284,24 +2379,21 @@
         document.getElementById('btnPresetLms').addEventListener('click', function () { applyDeliveryPreset('lms'); });
         document.getElementById('btnPresetSms').addEventListener('click', function () { applyDeliveryPreset('sms'); });
         document.getElementById('chkMergeMultiTrack').addEventListener('change', recomputeDeliveryItems);
-        document.getElementById('chkSkipAlreadySent').addEventListener('change', recomputeDeliveryItems);
         document.getElementById('deliveryTplInput').addEventListener('input', recomputeDeliveryItems);
 
         document.getElementById('chkAllDelivery').addEventListener('change', function (e) {
           var checked = e.target.checked;
           state.computedDeliveryItems.forEach(function (it) {
-            if (!it.hasError) it.checked = checked;
+            if (!it.hasError) {
+              it.checked = checked;
+              state.manualCheck[it.rowKey] = checked;
+            }
           });
           renderDeliveryTable();
         });
 
         document.getElementById('btnSendDeliveryBulk').addEventListener('click', handleConfirmAndSendBulk);
         document.getElementById('btnDownloadSampleXls').addEventListener('click', downloadTextFormattedExcelSample);
-        document.getElementById('btnLoadDemoRows').addEventListener('click', function () {
-          state.rawDeliveryRows = DEMO_DELIVERY_ROWS.slice();
-          recomputeDeliveryItems();
-          showToast('🧪 샘플 데이터 4건이 입력되었습니다.');
-        });
 
         document.getElementById('pasteTsvInput').addEventListener('input', function (e) {
           if (e.target.value.trim()) parseDelimitedText(e.target.value);
@@ -2349,9 +2441,11 @@
           state.scriptUrl = url;
           state.pin = pin;
           localStorage.setItem(STORAGE_KEYS.scriptUrl, url);
-          localStorage.setItem(STORAGE_KEYS.pin, pin);
-          await syncWithServer(false);
-          document.getElementById('modalSettings').classList.remove('open');
+          // PIN은 서버 확인이 성공한 뒤에만 저장 (틀린 PIN이 저장돼 반복 재시도 → 전 직원 10분 잠금 방지)
+          if (await syncWithServer(false)) {
+            localStorage.setItem(STORAGE_KEYS.pin, pin);
+            document.getElementById('modalSettings').classList.remove('open');
+          }
         });
 
         document.getElementById('btnSaveServerConfig').addEventListener('click', async function () {
@@ -2396,6 +2490,41 @@
           }
         });
 
+        // 사내 PIN 입력창 (모바일 첫 실행 / PIN 오류 시)
+        async function submitPinModal() {
+          var pin = document.getElementById('pinModalInput').value.trim();
+          if (pin.length < 4) return showToast('⚠️ PIN 4자리 이상을 입력해 주세요');
+          var okBtn = document.getElementById('btnPinModalOk');
+          okBtn.disabled = true;
+          okBtn.textContent = '⏳ 확인 중...';
+          state.pin = pin;
+          document.getElementById('modalPin').classList.remove('open');
+          var ok = await syncWithServer(true);
+          okBtn.disabled = false;
+          okBtn.textContent = '🔓 연결하기';
+          if (ok) {
+            localStorage.setItem(STORAGE_KEYS.pin, pin);
+            showToast('✅ 연결 완료! PC와 같은 데이터가 표시됩니다.');
+          } else if (state.pin) {
+            // 네트워크 오류 등 (PIN 오류는 SmsApiAdapter가 이미 PIN창을 다시 띄움)
+            state.pin = '';
+            renderHeaderStatus();
+            openPinModal('⚠️ 서버에 연결하지 못했습니다. 인터넷 연결 확인 후 다시 시도해 주세요.');
+          }
+        }
+        document.getElementById('btnPinModalOk').addEventListener('click', submitPinModal);
+        document.getElementById('pinModalInput').addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') submitPinModal();
+        });
+        document.getElementById('btnPinModalClose').addEventListener('click', function () {
+          document.getElementById('modalPin').classList.remove('open');
+        });
+        document.getElementById('balanceBadge').addEventListener('click', function () {
+          if (!SmsApiAdapter.isConnected()) openPinModal();
+          else if (state.ipBlocked) openConfirmModal('📵 문자 발송 차단 안내', explainSendError({ message: '허용되지 않은 IP' }), null);
+          else syncWithServer(false);
+        });
+
         // 2중 확인 모달
         document.getElementById('btnConfirmCancel').addEventListener('click', function () {
           document.getElementById('modalConfirm').classList.remove('open');
@@ -2423,14 +2552,40 @@
         });
 
         if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.register('./sw.js').catch(function () {});
+          // updateViaCache:'none' → sw.js 자체는 항상 서버에서 확인 (깃허브 10분 캐시 무시)
+          var hadController = Boolean(navigator.serviceWorker.controller);
+          var reloaded = false;
+          navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
+            state.swReg = reg;
+          }).catch(function () {});
+          // 새 버전 SW가 적용되면 1회 자동 새로고침 (최초 설치 때는 제외, 발송 중에는 보류)
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (!hadController || reloaded || state.sending) return;
+            reloaded = true;
+            window.location.reload();
+          });
         }
+
+        // 홈화면 앱을 다시 열 때(백그라운드 → 화면 복귀): 새 버전 확인 + PC와 데이터 재동기화 (30초 간격)
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState !== 'visible') return;
+          if (state.swReg) state.swReg.update().catch(function () {});
+          if (SmsApiAdapter.isConnected() && !state.sending && Date.now() - state.lastSyncAt > 30000) {
+            syncWithServer(true, { skipDelivery: true });
+          }
+        });
       }
 
       /* =========================================================
          10. 부트스트랩
          ========================================================= */
       document.addEventListener('DOMContentLoaded', function () {
+        // 🔄 새로고침 후 주소창의 ?v=... 정리 (다른 쿼리는 유지)
+        var bootQ = new URLSearchParams(window.location.search);
+        if (bootQ.has('v')) {
+          bootQ.delete('v');
+          history.replaceState(null, '', window.location.pathname + (bootQ.toString() ? '?' + bootQ.toString() : ''));
+        }
         bindEvents();
         initErpAndUrlParams();
         renderHeaderStatus();
@@ -2441,6 +2596,8 @@
         checkSingleDuplicateToday();
         if (SmsApiAdapter.isConnected()) {
           syncWithServer(true);
+        } else if (document.documentElement.getAttribute('data-embed') !== '1') {
+          openPinModal(); // 체험모드로 몰래 넘어가지 않고 PIN부터 바로 요청
         }
       });
     })();
