@@ -656,7 +656,7 @@
       </div>
 
       <label class="modal-label">1. Google Apps Script 웹앱 URL (또는 향후 ERP API URL)</label>
-      <input type="url" id="cfgScriptUrl" class="modal-input" placeholder="https://script.google.com/macros/s/.../exec">
+      <input type="url" id="cfgScriptUrl" class="modal-input" value="https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec">
 
       <label class="modal-label">2. 사내 공용 PIN 비밀번호 (4자리 이상)</label>
       <input type="password" id="cfgPin" class="modal-input" placeholder="사내 PIN 입력 (기기 자동 기억)">
@@ -777,8 +777,10 @@
       /* =========================================================
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
+      var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
+
       var state = {
-        scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || '',
+        scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
         pin: localStorage.getItem(STORAGE_KEYS.pin) || '',
         senderPhone: '053-267-3973',
         hasSolapiKey: false,
