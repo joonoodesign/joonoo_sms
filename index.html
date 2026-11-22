@@ -12,7 +12,9 @@
   <meta name="apple-mobile-web-app-title" content="주누문자">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"></noscript>
   <style>
     :root {
       --bg: #f1f5f9;
@@ -835,7 +837,7 @@
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
       var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
-      var APP_VERSION = 'v3.3'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
+      var APP_VERSION = 'v3.4'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
 
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
@@ -859,6 +861,9 @@
         visitPreset: localStorage.getItem(STORAGE_KEYS.visitPreset) || 'lms',
         deliveryTplDraft: '',
         visitTplDraft: '',
+        deliveryFetchPromise: null,
+        deliveryFetchSeq: 0,
+        prefetchedOnce: false,
         deferredInstallPrompt: null,
         confirmCallback: null,
         sending: false,
@@ -1126,16 +1131,29 @@
         return { valid: true, clean: digits, formatted: formatted, reason: '', restoredZero: restoredZero, isSafeNum: isSafeNum };
       }
 
+      function calcMod7Str(numStr) {
+        var rem = 0;
+        for (var i = 0; i < numStr.length; i++) {
+          rem = (rem * 10 + (numStr.charCodeAt(i) - 48)) % 7;
+        }
+        return rem;
+      }
+
       function normalizeTracking(raw) {
         var orig = String(raw == null ? '' : raw).trim();
-        if (!orig) return { valid: false, clean: '', reason: '송장번호 없음' };
-        if (/e\+/i.test(orig)) return { valid: false, clean: '', reason: '송장 지수깨짐(E+)' };
+        if (!orig) return { valid: false, clean: '', reason: '송장번호 없음', mod7Warning: false };
+        if (/e\+/i.test(orig)) return { valid: false, clean: '', reason: '송장 지수깨짐(E+)', mod7Warning: false };
         var noDec = orig.replace(/\.0+$/, '');
         var digits = noDec.replace(/\D/g, '');
-        if (digits.length < 9 || digits.length > 16) {
-          return { valid: false, clean: digits || orig, reason: '송장 자리수 오류' };
+        if (!digits) return { valid: false, clean: '', reason: '송장번호 없음', mod7Warning: false };
+        if (/^01[016789]\d{7,8}$/.test(digits)) {
+          return { valid: false, clean: digits, reason: '휴대폰번호 오기입(송장아님)', mod7Warning: false };
         }
-        return { valid: true, clean: digits, reason: '' };
+        if (digits.length !== 10 && digits.length !== 12) {
+          return { valid: false, clean: digits || orig, reason: '한진택배 송장 오류(' + digits.length + '자리 · 10/12자리만 가능)', mod7Warning: false };
+        }
+        var mod7Warning = calcMod7Str(digits.slice(0, -1)) !== Number(digits.slice(-1));
+        return { valid: true, clean: digits, reason: '', mod7Warning: mod7Warning };
       }
 
       function showToast(msg) {
@@ -1483,9 +1501,9 @@
             ? { valid: r.phoneValid, clean: r.cleanPhone, formatted: r.phone, reason: r.phoneReason, restoredZero: r.restoredZero, isSafeNum: r.isSafeNum }
             : normalizePhone(r.rawPhone);
           var t = isVisit
-            ? { valid: true, clean: visitLogicalKey, reason: '' }
+            ? { valid: true, clean: visitLogicalKey, reason: '', mod7Warning: false }
             : (r.trackingValid !== undefined
-                ? { valid: r.trackingValid, clean: r.trackingNo, reason: r.trackingReason }
+                ? { valid: r.trackingValid, clean: r.trackingNo, reason: r.trackingReason, mod7Warning: Boolean(r.mod7Warning) }
                 : normalizeTracking(r.rawTracking));
           var pairKey = (p.clean || '') + '|' + (t.clean || '');
           var sessRes = state.rowSendResult[pairKey];
@@ -1511,6 +1529,9 @@
               if (existing.trackingList.indexOf(entry.trackObj.clean) === -1) {
                 existing.trackingList.push(entry.trackObj.clean);
               }
+              if (entry.trackObj.mod7Warning) {
+                existing.mod7Warning = true;
+              }
               if (!existing.customerName && entry.customerName) {
                 existing.customerName = entry.customerName;
               }
@@ -1522,6 +1543,7 @@
             customerName: entry.customerName,
             phoneObj: entry.phoneObj,
             trackObj: entry.trackObj,
+            mod7Warning: Boolean(entry.trackObj.mod7Warning),
             trackingList: entry.trackObj.clean ? [entry.trackObj.clean] : [],
             alreadySentAt: entry.alreadySentAt
           });
@@ -1560,6 +1582,7 @@
             isSafeNum: g.phoneObj.isSafeNum,
             trackingList: g.trackingList,
             trackingDisplay: isVisit ? visitDisplayLabel : g.trackingList.join(', '),
+            mod7Warning: Boolean(g.mod7Warning),
             message: msg,
             byteLen: byteLen,
             msgType: msgType,
@@ -1631,6 +1654,9 @@
             var trackHtml = escapeHtml(item.trackingDisplay || '-');
             if (item.trackingList.length > 1) {
               trackHtml += ' <span class="tag ok">' + item.trackingList.length + '건 병합</span>';
+            }
+            if (!item.hasError && item.mod7Warning) {
+              trackHtml += ' <span class="tag warn" title="한진택배 체크디짓(Mod7) 불일치 — 번호 오타 여부 확인">⚠️ 오타확인</span>';
             }
             tdTrack.innerHTML = trackHtml;
           }
@@ -1812,6 +1838,7 @@
               if (directResp.failCount > 0) {
                 showToast('❌ 발송 실패: ' + (r0.detail || '번호 확인 필요'));
               } else {
+                state.ipBlocked = false;
                 showToast('✅ 주누디자인(' + state.senderPhone + ') 문자 발송 완료!');
                 document.getElementById('singlePhoneInput').value = '';
                 document.getElementById('singleNameInput').value = '';
@@ -1838,6 +1865,10 @@
               state.logs = resp.logs;
               saveLocalJson(STORAGE_KEYS.localLogs, state.logs);
             }
+            if (resp.balance && Number.isFinite(resp.balance.availableTotal)) {
+              state.availableBalance = resp.balance.availableTotal;
+              state.ipBlocked = false;
+            }
             if (resp.failCount > 0) {
               showToast('❌ 발송 실패: ' + (resp.results[0] && resp.results[0].detail ? resp.results[0].detail : '번호 확인 필요'));
             } else {
@@ -1845,7 +1876,9 @@
               document.getElementById('singlePhoneInput').value = '';
               document.getElementById('singleNameInput').value = '';
               document.getElementById('dupTodayNotice').style.display = 'none';
-              refreshBalanceQuietly();
+              if (!testMode && !resp.simulation && !(resp.balance && Number.isFinite(resp.balance.availableTotal))) {
+                refreshBalanceQuietly();
+              }
             }
           }
           renderLogs();
@@ -1868,33 +1901,56 @@
         }
       }
 
-      async function handleLoadDeliveryFromSheet() {
+      async function handleLoadDeliveryFromSheet(opts) {
+        opts = opts || {};
+        var isSilent = Boolean(opts.silent);
+        var isPrefetch = Boolean(opts.isPrefetch);
         if (!SmsApiAdapter.isConnected()) {
-          openPinModal('『배송데이터』 시트를 불러오려면 사내 PIN을 먼저 입력해 주세요.');
+          if (!isSilent) openPinModal('『배송데이터』 시트를 불러오려면 사내 PIN을 먼저 입력해 주세요.');
           return;
         }
-        var btn = document.getElementById('btnLoadDeliverySheet');
-        var orig = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '⏳ 불러오는 중...';
-        try {
-          // 발송 결과(실패 표시)는 유지: 다시 불러와도 빨간 실패 표시가 사라지지 않음 (비우기 때만 초기화)
-          var resp = await SmsApiAdapter.request('loadDeliverySheet', {});
-          state.rawDeliveryRows = resp.rows || [];
-          state.rawVisitRows = resp.visitRows || [];
-          // 택배가 0건이고 방문만 있으면 자동으로 방문 탭을 보여줌
-          if (state.rawDeliveryRows.length === 0 && state.rawVisitRows.length > 0 && state.deliverySubMode === 'delivery') {
-            switchDeliverySubMode('visit');
-          } else {
-            recomputeDeliveryItems();
-          }
-          showToast('✅ 『배송데이터』 불러오기 완료 (택배 ' + state.rawDeliveryRows.length + '건 · 방문 ' + state.rawVisitRows.length + '건)');
-        } catch (err) {
-          showToast('❌ 불러오기 실패: ' + err.message);
-        } finally {
-          btn.disabled = false;
-          btn.textContent = orig;
+        // 진행 중 요청 공유(Singleflight): 프리페치·탭 전환 중복 호출 차단 (사용자가 명시 클릭한 경우만 새 시퀀스 발행)
+        if (state.deliveryFetchPromise && (isPrefetch || !opts.forceReload)) {
+          return state.deliveryFetchPromise;
         }
+        var btn = document.getElementById('btnLoadDeliverySheet');
+        var mySeq = ++state.deliveryFetchSeq;
+        if (!isPrefetch) {
+          btn.disabled = true;
+          btn.textContent = '⏳ 불러오는 중...';
+        }
+        var p = (async function () {
+          try {
+            var resp = await SmsApiAdapter.request('loadDeliverySheet', {});
+            // 더 최신 요청이 이미 시작됐으면 구응답 폐기
+            if (mySeq !== state.deliveryFetchSeq) return;
+            // 백그라운드 프리페치인데 그 사이 사용자가 파일·복붙·수동체크를 했으면 덮어쓰지 않음
+            if (isPrefetch && (state.rawDeliveryRows.length > 0 || state.rawVisitRows.length > 0 || Object.keys(state.manualCheck).length > 0)) {
+              return;
+            }
+            state.rawDeliveryRows = resp.rows || [];
+            state.rawVisitRows = resp.visitRows || [];
+            var onDeliveryPanel = document.getElementById('panelDelivery').classList.contains('active');
+            if (onDeliveryPanel && state.rawDeliveryRows.length === 0 && state.rawVisitRows.length > 0 && state.deliverySubMode === 'delivery') {
+              switchDeliverySubMode('visit');
+            } else {
+              recomputeDeliveryItems();
+            }
+            if (!isSilent && onDeliveryPanel) {
+              showToast('✅ 『배송데이터』 불러오기 완료 (택배 ' + state.rawDeliveryRows.length + '건 · 방문 ' + state.rawVisitRows.length + '건)');
+            }
+          } catch (err) {
+            if (!isSilent) showToast('❌ 불러오기 실패: ' + err.message);
+          } finally {
+            if (mySeq === state.deliveryFetchSeq) {
+              state.deliveryFetchPromise = null;
+            }
+            btn.disabled = false;
+            btn.textContent = '① 시트 불러오기';
+          }
+        })();
+        state.deliveryFetchPromise = p;
+        return p;
       }
 
       function handleConfirmAndSendBulk() {
@@ -1936,6 +1992,7 @@
         var skipAlreadySent = !targets.some(function (t) { return t.isSent; });
         var totalSuccess = 0;
         var totalFail = 0;
+        var lastRespHadBalance = false;
         var chunkSize = 100;
         var current = [];
 
@@ -1975,6 +2032,7 @@
               try {
                 var dResp = await SolapiDirectClient.sendMany(items);
                 chunkHandledDirect = true;
+                if (dResp.successCount > 0) state.ipBlocked = false;
                 totalSuccess += Number(dResp.successCount || 0);
                 totalFail += Number(dResp.failCount || 0);
                 remember(dResp.results);
@@ -2005,12 +2063,18 @@
                 state.logs = resp.logs;
                 saveLocalJson(STORAGE_KEYS.localLogs, state.logs);
               }
+              if (resp.balance && Number.isFinite(resp.balance.availableTotal)) {
+                state.availableBalance = resp.balance.availableTotal;
+                state.ipBlocked = false;
+                renderHeaderStatus();
+                lastRespHadBalance = true;
+              }
               remember(resp.results);
               rememberSkipped(resp.skipped);
               totalFail += (resp.skipped || []).length;
             }
           }
-          if (!testMode) refreshBalanceQuietly();
+          if (!testMode && (!lastRespHadBalance || useDirect)) refreshBalanceQuietly();
           showToast((testMode ? '🧪 테스트 기록 완료 (실제 발송 없음)! ' : '✅ 발송 완료! ') + '성공 ' + totalSuccess + '건' + (totalFail > 0 ? ' / 실패·제외 ' + totalFail + '건 (빨간색 표시)' : ''));
         } catch (err) {
           if (err.data && err.data.skipped) {
@@ -2244,15 +2308,18 @@
           return false;
         }
         try {
-          var resp = await SmsApiAdapter.request('init', { includeBalance: true });
+          var resp = await SmsApiAdapter.request('init', {
+            includeBalance: true,
+            forceFreshBalance: Boolean(opts.forceFreshBalance || !silent)
+          });
           state.lastSyncAt = Date.now();
           if (resp.directCredentials && resp.directCredentials.apiKey && resp.directCredentials.apiSecret) {
             state.solapiApiKey = resp.directCredentials.apiKey;
             state.solapiApiSecret = resp.directCredentials.apiSecret;
             localStorage.setItem(STORAGE_KEYS.solapiKey, state.solapiApiKey);
             localStorage.setItem(STORAGE_KEYS.solapiSecret, state.solapiApiSecret);
-          } else if (resp.config && resp.config.hasSolapiKey === false) {
-            // 서버에서 키가 삭제됐으면 이 기기의 옛 키도 제거
+          } else if (resp.config && (resp.config.hasSolapiKey === false || resp.config.relayActive === true)) {
+            // 서버에서 키가 삭제됐거나 카페24 고정IP 중계기가 활성화된 경우 기기 내 옛 평문 키 즉시 정리
             state.solapiApiKey = '';
             state.solapiApiSecret = '';
             localStorage.removeItem(STORAGE_KEYS.solapiKey);
@@ -2300,8 +2367,17 @@
           }
           renderHeaderStatus();
           if (document.getElementById('panelDelivery').classList.contains('active')) {
-            if (!opts.skipDelivery && state.rawDeliveryRows.length === 0) handleLoadDeliveryFromSheet();
-            else recomputeDeliveryItems(); // 최신 발송내역 기준으로 ✅완료 표시만 갱신
+            if (!opts.skipDelivery && state.rawDeliveryRows.length === 0 && state.rawVisitRows.length === 0) {
+              handleLoadDeliveryFromSheet();
+            } else {
+              recomputeDeliveryItems(); // 최신 발송내역 기준으로 ✅완료 표시만 갱신
+            }
+          } else if (!opts.skipDelivery && !state.prefetchedOnce && state.rawDeliveryRows.length === 0 && state.rawVisitRows.length === 0) {
+            // 부팅 직후 일반문자 화면일 때 1회만 백그라운드 프리페치 → 배송/방문 탭 클릭 시 기다림 0초
+            state.prefetchedOnce = true;
+            setTimeout(function () {
+              handleLoadDeliveryFromSheet({ silent: true, isPrefetch: true });
+            }, 350);
           }
           if (!resp.serverVersion && !silent) {
             showToast('ℹ️ 서버 스크립트가 구버전입니다. 새 Code.gs로 [새 버전 배포]하면 시트 비우기·휴대폰 발송이 완전해집니다.');
@@ -2554,7 +2630,9 @@
         // 배송데이터 탭 이벤트
         document.getElementById('btnSubDelivery').addEventListener('click', function () { switchDeliverySubMode('delivery'); });
         document.getElementById('btnSubVisit').addEventListener('click', function () { switchDeliverySubMode('visit'); });
-        document.getElementById('btnLoadDeliverySheet').addEventListener('click', handleLoadDeliveryFromSheet);
+        document.getElementById('btnLoadDeliverySheet').addEventListener('click', function () {
+          handleLoadDeliveryFromSheet({ forceReload: true });
+        });
         document.getElementById('btnClearSentDelivery').addEventListener('click', handleClearSentFromDeliverySheet);
         document.getElementById('btnToggleManualImport').addEventListener('click', function () {
           var box = document.getElementById('manualImportBox');
@@ -2710,8 +2788,12 @@
         });
         document.getElementById('balanceBadge').addEventListener('click', function () {
           if (!SmsApiAdapter.isConnected()) openPinModal();
-          else if (state.ipBlocked) openConfirmModal('📵 문자 발송 차단 안내', explainSendError({ message: '허용되지 않은 IP' }), null);
-          else syncWithServer(false);
+          else if (state.ipBlocked) {
+            syncWithServer(true, { forceFreshBalance: true });
+            openConfirmModal('📵 문자 발송 차단 안내', explainSendError({ message: '허용되지 않은 IP' }), null);
+          } else {
+            syncWithServer(false, { forceFreshBalance: true });
+          }
         });
 
         // 2중 확인 모달
@@ -2747,9 +2829,21 @@
           navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
             state.swReg = reg;
           }).catch(function () {});
-          // 새 버전 SW가 적용되면 1회 자동 새로고침 (최초 설치 때는 제외, 발송 중에는 보류)
+          // 새 버전 SW가 적용되면 1회 안전 자동 새로고침 (발송 중·문자 작성 중·배송 작업 중·모달 열림 시 입력 유실 방지 위해 보류)
           navigator.serviceWorker.addEventListener('controllerchange', function () {
             if (!hadController || reloaded || state.sending) return;
+            var hasDraft = Boolean(
+              document.getElementById('singlePhoneInput').value.trim() ||
+              document.getElementById('singleMsgInput').value.trim() ||
+              Object.keys(state.manualCheck).length > 0 ||
+              state.rawDeliveryRows.length > 0 ||
+              state.rawVisitRows.length > 0 ||
+              document.querySelector('.modal-backdrop.open')
+            );
+            if (hasDraft) {
+              showToast('✨ 새 버전이 준비되었습니다. 작업 후 상단 [🔄 새로고침]을 눌러주세요.');
+              return;
+            }
             reloaded = true;
             window.location.reload();
           });

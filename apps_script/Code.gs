@@ -11,7 +11,7 @@ var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
 var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
-var SERVER_VERSION_ = "2.3";
+var SERVER_VERSION_ = "2.4";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -150,8 +150,24 @@ function calcEucKrBytes_(text) {
 /**
  * 한국 휴대폰(010 등 10~11자리) 및 안심번호(050X 11~12자리) 정규화
  */
+function isDateValue_(v) {
+  return v instanceof Date || Object.prototype.toString.call(v) === "[object Date]";
+}
+
+function calcMod7String_(numStr) {
+  var rem = 0;
+  for (var i = 0; i < numStr.length; i++) {
+    rem = (rem * 10 + (numStr.charCodeAt(i) - 48)) % 7;
+  }
+  return rem;
+}
+
 function normalizeReceiverPhone_(raw) {
-  var orig = String(raw == null ? "" : raw).trim();
+  if (isDateValue_(raw)) {
+    return { valid: false, clean: "", formatted: "", reason: "날짜형식오류", restoredZero: false, isSafeNum: false };
+  }
+  var orig = (typeof raw === "number" && isFinite(raw)) ? raw.toFixed(0) : String(raw == null ? "" : raw).trim();
+  orig = orig.replace(/\.0+$/, "");
   if (!orig) return { valid: false, clean: "", formatted: "", reason: "번호 없음", restoredZero: false, isSafeNum: false };
   if (/e\+/i.test(orig)) {
     return { valid: false, clean: "", formatted: orig, reason: "엑셀 지수깨짐(E+)", restoredZero: false, isSafeNum: false };
@@ -161,8 +177,8 @@ function normalizeReceiverPhone_(raw) {
   var digits = s.replace(/\D/g, "");
   var restoredZero = false;
 
-  // 시트 숫자 서식으로 앞자리 0이 빠진 경우 복원 (10xxxxxxxx -> 010xxxxxxxx, 50xxxxxxxxx -> 050xxxxxxxxx)
-  if (/^10\d{8}$/.test(digits)) {
+  // 시트 숫자 서식으로 앞자리 0이 빠진 경우 복원 (010~019, 050)
+  if (/^1[016789]\d{7,8}$/.test(digits)) {
     digits = "0" + digits;
     restoredZero = true;
   } else if (/^50\d{8,9}$/.test(digits)) {
@@ -198,25 +214,33 @@ function normalizeReceiverPhone_(raw) {
 }
 
 function normalizeTrackingNo_(rawVal, displayVal) {
+  if (isDateValue_(rawVal)) {
+    return { valid: false, clean: "", reason: "날짜형식오류(송장아님)", mod7Warning: false };
+  }
   var disp = String(displayVal == null ? "" : displayVal).trim();
   var rawStr = String(rawVal == null ? "" : rawVal).trim();
   var candidate = disp || rawStr;
   // 숫자 셀은 원값으로 먼저 복원 (열이 좁아 화면에 4.64E+11로 보여도 정상 송장으로 인식)
   if (typeof rawVal === "number" && isFinite(rawVal) && rawVal <= 9007199254740991) {
     candidate = rawVal.toFixed(0);
-  } else if (/e\+/i.test(disp)) {
-    return { valid: false, clean: "", reason: "송장 지수깨짐(E+)" };
+  } else if (/e\+/i.test(candidate) || /e\+/i.test(disp)) {
+    return { valid: false, clean: "", reason: "송장 지수깨짐(E+)", mod7Warning: false };
   }
   // 소수점 .0 제거
   candidate = candidate.replace(/\.0+$/, "");
   var digits = candidate.replace(/\D/g, "");
   if (!digits) {
-    return { valid: false, clean: "", reason: "송장번호 없음" };
+    return { valid: false, clean: "", reason: "송장번호 없음", mod7Warning: false };
   }
-  if (digits.length < 9 || digits.length > 16) {
-    return { valid: false, clean: digits, reason: "송장 자리수 확인(" + digits.length + "자리)" };
+  if (/^01[016789]\d{7,8}$/.test(digits)) {
+    return { valid: false, clean: digits, reason: "휴대폰번호 오기입(송장아님)", mod7Warning: false };
   }
-  return { valid: true, clean: digits, reason: "" };
+  // 한진택배 국내 표준 운송장: 10자리 또는 12자리 숫자만 허용
+  if (digits.length !== 10 && digits.length !== 12) {
+    return { valid: false, clean: digits, reason: "한진택배 송장 오류(" + digits.length + "자리 · 10/12자리만 가능)", mod7Warning: false };
+  }
+  var mod7Warning = calcMod7String_(digits.slice(0, -1)) !== Number(digits.slice(-1));
+  return { valid: true, clean: digits, reason: "", mod7Warning: mod7Warning };
 }
 
 function formatSenderDisplay_(digits) {
@@ -300,6 +324,63 @@ function ensureLocalSheets_() {
   }
 
   return { tplSheet: tplSheet, logSheet: logSheet };
+}
+
+var TPL_CACHE_KEY_ = "TPL_CACHE_V1";
+
+function getBalanceCacheKey_(apiKey) {
+  var k = String(apiKey || "").trim();
+  return "BAL_CACHE_V1_" + (k ? k.slice(-8) : "NONE");
+}
+
+function invalidateTemplatesCache_() {
+  try { CacheService.getScriptCache().remove(TPL_CACHE_KEY_); } catch (e) {}
+}
+
+function invalidateBalanceCache_(apiKey) {
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.remove(getBalanceCacheKey_(apiKey));
+    cache.remove("BAL_CACHE_V1_NONE");
+  } catch (e) {}
+}
+
+function readTemplatesCached_(tplSheet) {
+  var cache = CacheService.getScriptCache();
+  try {
+    var hit = cache.get(TPL_CACHE_KEY_);
+    if (hit) {
+      var parsed = JSON.parse(hit);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  var list = readTemplates_(tplSheet);
+  try {
+    var jsonStr = JSON.stringify(list);
+    if (jsonStr.length < 90000) cache.put(TPL_CACHE_KEY_, jsonStr, 300);
+  } catch (e2) {}
+  return list;
+}
+
+function fetchSolapiBalanceCached_(apiKey, apiSecret, forceFresh) {
+  var cacheKey = getBalanceCacheKey_(apiKey);
+  var cache = CacheService.getScriptCache();
+  if (!forceFresh) {
+    try {
+      var hit = cache.get(cacheKey);
+      if (hit) {
+        var parsed = JSON.parse(hit);
+        if (parsed && typeof parsed.availableTotal === "number" && isFinite(parsed.availableTotal)) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  var bal = fetchSolapiBalance_(apiKey, apiSecret);
+  if (bal && typeof bal.availableTotal === "number" && isFinite(bal.availableTotal)) {
+    try { cache.put(cacheKey, JSON.stringify(bal), 60); } catch (e2) {}
+  }
+  return bal;
 }
 
 function readTemplates_(tplSheet) {
@@ -623,6 +704,13 @@ function detectDeliveryLayout_(dispVals) {
   return layout;
 }
 
+function cellToSafeText_(val) {
+  if (val == null || val === "" || typeof val === "boolean") return "";
+  if (isDateValue_(val)) return "";
+  if (typeof val === "number" && isFinite(val)) return val.toFixed(0);
+  return String(val).trim();
+}
+
 function readDeliverySheetRows_(logSheet) {
   var deliverySheet = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
   var lastRow = deliverySheet.getLastRow();
@@ -631,30 +719,36 @@ function readDeliverySheetRows_(logSheet) {
   }
   var colCount = Math.max(6, Math.min(deliverySheet.getLastColumn(), 10));
   var range = deliverySheet.getRange(1, 1, lastRow, colCount);
+  // 1회 원격 읽기(getValues)로 속도 2배 개선 (Date/Boolean/지수깨짐/010~019 앞0 복원 가드 완비)
   var rawVals = range.getValues();
-  var dispVals = range.getDisplayValues();
+  var topCount = Math.min(2, rawVals.length);
+  var headerPreview = [];
+  for (var h = 0; h < topCount; h++) {
+    headerPreview.push(rawVals[h].map(function (v) { return cellToSafeText_(v); }));
+  }
 
-  var layout = detectDeliveryLayout_(dispVals);
+  var layout = detectDeliveryLayout_(headerPreview);
   var startIdx = layout.headerRowCount;
   var todayStr = todayKstPrefix_();
   var sentIdx = buildSentIndex_(logSheet);
   var resultRows = [];
   var visitRows = [];
 
-  for (var r = startIdx; r < dispVals.length; r++) {
-    var dRow = dispVals[r];
+  for (var r = startIdx; r < rawVals.length; r++) {
     var vRow = rawVals[r];
 
     // 1) 좌측: 택배출고발송 (A:이름 | B:전화번호 | C:송장번호)
-    var rawName = String(dRow[layout.nameCol] == null ? "" : dRow[layout.nameCol]).trim();
-    var rawPhone = String(dRow[layout.phoneCol] == null ? "" : dRow[layout.phoneCol]).trim();
-    var dispTrack = String(dRow[layout.trackCol] == null ? "" : dRow[layout.trackCol]).trim();
+    var valName = vRow[layout.nameCol];
+    var valPhone = vRow[layout.phoneCol];
     var valTrack = vRow[layout.trackCol];
+    var rawName = cellToSafeText_(valName);
+    var rawPhone = isDateValue_(valPhone) ? "[날짜]" : cellToSafeText_(valPhone);
+    var dispTrack = isDateValue_(valTrack) ? "[날짜]" : cellToSafeText_(valTrack);
 
     if (rawName || rawPhone || dispTrack) {
       var isDupHdr = rawName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawPhone) && /송장/.test(dispTrack);
       if (!isDupHdr) {
-        var pInfo = normalizeReceiverPhone_(rawPhone);
+        var pInfo = normalizeReceiverPhone_(valPhone);
         var tInfo = normalizeTrackingNo_(valTrack, dispTrack);
         var pairKey = (pInfo.clean || "") + "|" + (tInfo.clean || "");
         var alreadySentAt = (pInfo.valid && tInfo.valid && sentIdx.sentPairMap[pairKey]) ? sentIdx.sentPairMap[pairKey] : "";
@@ -673,19 +767,22 @@ function readDeliverySheetRows_(logSheet) {
           trackingNo: tInfo.clean || dispTrack,
           trackingValid: tInfo.valid,
           trackingReason: tInfo.reason,
+          mod7Warning: Boolean(tInfo.mod7Warning),
           alreadySentAt: alreadySentAt
         });
       }
     }
 
     // 2) 우측: 방문문자 (E:이름 | F:전화번호)
-    if (layout.visitNameCol >= 0 && layout.visitPhoneCol >= 0 && layout.visitPhoneCol < dRow.length) {
-      var rawVName = String(dRow[layout.visitNameCol] == null ? "" : dRow[layout.visitNameCol]).trim();
-      var rawVPhone = String(dRow[layout.visitPhoneCol] == null ? "" : dRow[layout.visitPhoneCol]).trim();
+    if (layout.visitNameCol >= 0 && layout.visitPhoneCol >= 0 && layout.visitPhoneCol < vRow.length) {
+      var valVName = vRow[layout.visitNameCol];
+      var valVPhone = vRow[layout.visitPhoneCol];
+      var rawVName = cellToSafeText_(valVName);
+      var rawVPhone = isDateValue_(valVPhone) ? "[날짜]" : cellToSafeText_(valVPhone);
       if (rawVName || rawVPhone) {
         var isDupVHdr = rawVName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawVPhone);
         if (!isDupVHdr) {
-          var vpInfo = normalizeReceiverPhone_(rawVPhone);
+          var vpInfo = normalizeReceiverPhone_(valVPhone);
           var visitKey = (vpInfo.clean || "") + "|VISIT_" + todayStr;
           var visitSentAt = (vpInfo.valid && sentIdx.sentPairMap[visitKey]) ? sentIdx.sentPairMap[visitKey] : "";
 
@@ -803,6 +900,7 @@ function doPost(e) {
           else props.setProperty("RELAY_TOKEN", rt);
         }
         ensureLocalSheets_();
+        invalidateBalanceCache_(props.getProperty("SOLAPI_API_KEY"));
         return jsonOut_({
           ok: true,
           action: "saveConfig",
@@ -817,16 +915,18 @@ function doPost(e) {
     // 2. 초기 로드 / 동기화 (상용구 + 최근 발송내역 + 설정 마스킹 정보 + 잔액)
     if (action === "init" || action === "sync") {
       var sheets = ensureLocalSheets_();
-      var templates = readTemplates_(sheets.tplSheet);
+      var templates = readTemplatesCached_(sheets.tplSheet);
       var logs = readRecentLogs_(sheets.logSheet, 250);
       var cfg = getMaskedConfig_();
       var balanceInfo = null;
+      var forceFresh = Boolean(data.forceFreshBalance);
 
       if (cfg.hasSolapiKey && data.includeBalance !== false) {
         try {
-          balanceInfo = fetchSolapiBalance_(
+          balanceInfo = fetchSolapiBalanceCached_(
             props.getProperty("SOLAPI_API_KEY"),
-            props.getProperty("SOLAPI_API_SECRET")
+            props.getProperty("SOLAPI_API_SECRET"),
+            forceFresh
           );
         } catch (balErr) {
           balanceInfo = { error: String(balErr.message || balErr) };
@@ -838,7 +938,8 @@ function doPost(e) {
         action: action,
         serverVersion: SERVER_VERSION_,
         config: cfg,
-        directCredentials: cfg.hasSolapiKey ? {
+        // 중계기(relayActive) 활성 시 브라우저에 솔라피 평문 키 노출 차단 (보안+경량화)
+        directCredentials: (!cfg.relayActive && cfg.hasSolapiKey) ? {
           apiKey: String(props.getProperty("SOLAPI_API_KEY") || "").trim(),
           apiSecret: String(props.getProperty("SOLAPI_API_SECRET") || "").trim()
         } : null,
@@ -887,6 +988,7 @@ function doPost(e) {
           logSheetRec.getRange(startRowRec, 1, appendRows.length, LOG_HEADERS_.length)
             .setNumberFormat("@")
             .setValues(appendRows);
+          invalidateBalanceCache_(props.getProperty("SOLAPI_API_KEY"));
         }
         return jsonOut_({
           ok: true,
@@ -906,9 +1008,10 @@ function doPost(e) {
       if (!cfgBal.hasSolapiKey) {
         return jsonOut_({ ok: true, hasSolapiKey: false, balance: null });
       }
-      var bal = fetchSolapiBalance_(
+      var bal = fetchSolapiBalanceCached_(
         props.getProperty("SOLAPI_API_KEY"),
-        props.getProperty("SOLAPI_API_SECRET")
+        props.getProperty("SOLAPI_API_SECRET"),
+        Boolean(data.forceFreshBalance)
       );
       return jsonOut_({ ok: true, hasSolapiKey: true, balance: bal });
     }
@@ -955,6 +1058,7 @@ function doPost(e) {
             .setValues([[tplId, safeCell_(title), safeCell_(body), String(nextOrder), nowStr]]);
         }
 
+        invalidateTemplatesCache_();
         return jsonOut_({
           ok: true,
           action: "saveTemplate",
@@ -989,6 +1093,7 @@ function doPost(e) {
             }
           }
         }
+        invalidateTemplatesCache_();
         return jsonOut_({
           ok: true,
           action: "deleteTemplate",
@@ -1264,10 +1369,11 @@ function doPost(e) {
         var failedByPhone = {};
         var sentSuccessCount = 0;
         var sentFailCount = 0;
+        var balBefore = null;
 
         if (!isSimulation) {
-          // 발송 전 잔액 확인
-          var balBefore = fetchSolapiBalance_(apiKey, apiSecret);
+          // 발송 전 실시간 잔액 확인 (절대 캐시 미사용)
+          balBefore = fetchSolapiBalance_(apiKey, apiSecret);
           if (balBefore.availableTotal < estimatedCost) {
             return jsonOut_({
               ok: false,
@@ -1334,6 +1440,7 @@ function doPost(e) {
         var sentTime = nowKstStr_();
         var logRowsToWrite = [];
         var itemResults = [];
+        var actualSuccessCost = 0;
 
         for (var w = 0; w < validBatch.length; w++) {
           var rowItem = validBatch[w];
@@ -1351,12 +1458,13 @@ function doPost(e) {
             statusLabel = "체험발송";
             detailLabel = "솔라피 키 연결 전 시뮬레이션 기록";
             sentSuccessCount++;
-            cacheSvc.put(rowItem.dupHashKey, "1", 60);
+            try { cacheSvc.put(rowItem.dupHashKey, "1", 60); } catch (ce1) {}
           } else {
             statusLabel = "발송접수";
             detailLabel = "정상 접수 (" + formatSenderDisplay_(senderDigits) + ")";
             sentSuccessCount++;
-            cacheSvc.put(rowItem.dupHashKey, "1", 60);
+            actualSuccessCost += (rowItem.msgType === "SMS" ? 18 : 45);
+            try { cacheSvc.put(rowItem.dupHashKey, "1", 60); } catch (ce2) {}
           }
 
           var logId = "L" + Date.now() + "_" + (w + 1);
@@ -1394,6 +1502,41 @@ function doPost(e) {
             .setValues(logRowsToWrite);
         }
 
+        // 실발송 시 표시용 잔액 캐시 무효화 + 성공건만 차감한 추정 잔액 함께 반환 (추가 중계기 왕복 제거)
+        var estimatedBalanceObj = null;
+        if (!isSimulation) {
+          invalidateBalanceCache_(apiKey);
+          if (balBefore && typeof balBefore.availableTotal === "number" && isFinite(balBefore.availableTotal)) {
+            estimatedBalanceObj = {
+              availableTotal: Math.max(0, balBefore.availableTotal - actualSuccessCost),
+              estimated: true
+            };
+          }
+        }
+
+        var lightResultObj = {
+          ok: true,
+          action: "send",
+          simulation: isSimulation,
+          groupId: groupId,
+          successCount: sentSuccessCount,
+          failCount: sentFailCount,
+          skippedCount: skippedItems.length,
+          skipped: skippedItems,
+          results: itemResults,
+          balance: estimatedBalanceObj
+        };
+
+        // REQ_IDEMP_ 캐시에는 대용량 logs(250건)를 제외해 100KB 한도 초과 예외를 원천 차단
+        if (requestId) {
+          try {
+            var idempStr = JSON.stringify(lightResultObj);
+            if (idempStr.length < 95000) {
+              cacheSvc.put("REQ_IDEMP_" + requestId, idempStr, 21600);
+            }
+          } catch (idempErr) {}
+        }
+
         var outObj = {
           ok: true,
           action: "send",
@@ -1404,14 +1547,11 @@ function doPost(e) {
           skippedCount: skippedItems.length,
           skipped: skippedItems,
           results: itemResults,
+          balance: estimatedBalanceObj,
           logs: readRecentLogs_(db.logSheet, 250)
         };
 
-        var outJsonStr = JSON.stringify(outObj);
-        if (requestId) {
-          cacheSvc.put("REQ_IDEMP_" + requestId, outJsonStr, 21600);
-        }
-        return ContentService.createTextOutput(outJsonStr).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(JSON.stringify(outObj)).setMimeType(ContentService.MimeType.JSON);
       } finally {
         SpreadsheetApp.flush();
         lockSend.releaseLock();
