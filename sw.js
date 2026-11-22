@@ -1,5 +1,5 @@
 // 네트워크 우선(Network-First) + 오프라인 폴백. 앱 파일만 캐시하고 구글/솔라피 등 외부 요청은 절대 가로채지 않음.
-const CACHE_NAME = 'joonoo-sms-v3.2';
+const CACHE_NAME = 'joonoo-sms-v3.3';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {

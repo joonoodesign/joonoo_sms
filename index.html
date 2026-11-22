@@ -822,12 +822,12 @@
       ];
 
       var DELIVERY_PRESETS = {
-        lms: '[주누디자인] {이름}님 주문하신 상품이 오늘 출고되었습니다.\n■ 한진택배: {송장번호}\n■ 실시간 배송조회:\nhttps://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2={대표송장번호}\n문의: 053-267-3973',
-        sms: '[주누디자인] {이름}님 한진택배 {송장번호} 출고되었습니다. 문의 053-267-3973'
+        lms: '[주누디자인] {이름}님 주문하신 상품이 오늘 출고되었습니다.\n■ 한진택배: {송장번호}\n■ 실시간 배송조회:\nhttps://www.hanjin.com/kor/CMS/DeliveryMgr/WaybillResult.do?mCode=MN038&schLang=KR&wblnumText2={대표송장번호}',
+        sms: '[주누디자인] {이름}님 한진택배 {송장번호} 출고되었습니다.'
       };
 
       var VISIT_PRESETS = {
-        lms: '[주누디자인] {이름}님 주문하신 상품이 제작 완료되어 방문수령 가능합니다.\n■ 주소: 대구광역시 달서구 구마로39길 38\n감사합니다.',
+        lms: '[주누디자인] {이름}님 주문하신 상품이 제작 완료되어 방문수령 가능합니다.',
         sms: '[주누디자인] {이름}님 주문하신 상품 제작완료! 방문수령 가능합니다.'
       };
 
@@ -835,7 +835,7 @@
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
       var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
-      var APP_VERSION = 'v3.2'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
+      var APP_VERSION = 'v3.3'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
 
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
@@ -2365,10 +2365,10 @@
         document.getElementById('btnSubVisit').classList.toggle('active', isVisit);
         document.getElementById('btnClearSentDelivery').textContent = isVisit ? '③ 방문 명단 비우기' : '③ 택배 명단 비우기';
         document.getElementById('btnPresetLms').textContent = isVisit
-          ? '📍 주소 포함 방문 안내 (장문 LMS · 45원)'
+          ? '🏪 기본 방문수령 안내 (단문 SMS · 18원)'
           : '🔗 한진택배 조회링크 포함 (장문 LMS · 45원)';
         document.getElementById('btnPresetSms').textContent = isVisit
-          ? '⚡ 초절약 방문 단문 (SMS · 18원)'
+          ? '⚡ 초간단 방문 안내 (단문 SMS · 18원)'
           : '⚡ 초절약 송장 단문 (SMS · 18원)';
         document.getElementById('lblMergeMultiTrack').textContent = isVisit
           ? '같은 번호 중복 1통으로 합치기'
