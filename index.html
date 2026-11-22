@@ -452,6 +452,39 @@
     }
     .toast.show { display: block; }
 
+    .submode-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 6px;
+      background: var(--surface-sub);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .submode-btn {
+      height: 44px;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-sub);
+      font-size: 15px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .submode-btn.active {
+      background: var(--surface);
+      color: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+    }
+
     @media (max-width: 640px) {
       .input-sm { width: 100%; height: 44px; }
       .btn-send-main { height: 54px; }
@@ -482,7 +515,7 @@
     <!-- 단 2개 핵심 업무 탭 -->
     <nav class="mode-tabs" role="tablist">
       <button type="button" class="mode-tab active" id="tabBtnSingle" data-tab="single">✉️ 일반 문자 (1건 발송)</button>
-      <button type="button" class="mode-tab" id="tabBtnDelivery" data-tab="delivery">📦 택배 출고 발송 (배송데이터)</button>
+      <button type="button" class="mode-tab" id="tabBtnDelivery" data-tab="delivery">📦 택배 · 방문 발송 (배송데이터)</button>
     </nav>
 
     <!-- ==========================================
@@ -551,22 +584,32 @@
     </section>
 
     <!-- ==========================================
-         [화면 2] 택배 출고 발송 (구글 시트 '배송데이터' 직결)
+         [화면 2] 택배 출고 · 방문 문자 발송 (구글 시트 '배송데이터' 직결)
          ========================================== -->
     <section class="panel" id="panelDelivery">
       <div class="card">
         <div class="card-head">
           <div>
-            <h2 class="card-title">📦 구글 시트 『배송데이터』 출고 문자 발송</h2>
+            <h2 class="card-title" id="deliveryCardTitle">📦 구글 시트 『배송데이터』 출고 · 방문 문자 발송</h2>
             <div style="font-size:13px; color:var(--text-sub); margin-top:3px;">
-              <strong>① 시트 불러오기</strong> → <strong>② 문자 발송 (실패 건 빨간색 표시)</strong> → <strong>③ 시트 깨끗하게 비우기</strong> 순서로 끝납니다.
+              <strong>① 시트 불러오기</strong> → <strong>택배(A~C열) / 방문(E~F열)</strong> 선택 → <strong>② 일괄 발송</strong> → <strong>③ 명단 비우기</strong>
             </div>
           </div>
           <div style="display:flex; gap:7px; flex-wrap:wrap;">
             <button type="button" class="btn-sub primary-outline" id="btnLoadDeliverySheet">① 시트 불러오기</button>
-            <button type="button" class="btn-sub" id="btnClearSentDelivery" style="color:var(--err); border-color:#fca5a5;">③ 시트 깨끗하게 비우기</button>
+            <button type="button" class="btn-sub" id="btnClearSentDelivery" style="color:var(--err); border-color:#fca5a5;">③ 택배 명단 비우기</button>
             <button type="button" class="btn-sub" id="btnToggleManualImport">📂 파일·복붙</button>
           </div>
+        </div>
+
+        <!-- 택배출고발송(A~C열) ↔ 방문문자(E~F열) 전환 바 -->
+        <div class="submode-bar" role="tablist">
+          <button type="button" class="submode-btn active" id="btnSubDelivery">
+            📦 택배출고발송 <span class="tag ok" id="badgeDeliveryCount">0건</span>
+          </button>
+          <button type="button" class="submode-btn" id="btnSubVisit">
+            🏪 방문문자 <span class="tag warn" id="badgeVisitCount">0건</span>
+          </button>
         </div>
 
         <!-- 예외용 보조 입력창 (평소에는 숨김) -->
@@ -578,15 +621,15 @@
             </label>
             <button type="button" class="btn-sub" id="btnDownloadSampleXls">📥 표준 서식(.xls 텍스트고정) 다운로드</button>
           </div>
-          <textarea id="pasteTsvInput" class="modal-input" style="height:76px; padding:8px;" placeholder="또는 엑셀/시트에서 [이름 | 전화번호 | 송장번호] 영역을 복사(Ctrl+C)해 여기에 붙여넣기(Ctrl+V) 하세요."></textarea>
+          <textarea id="pasteTsvInput" class="modal-input" style="height:76px; padding:8px;" placeholder="또는 엑셀/시트에서 [이름 | 전화번호 | 송장번호] (방문문자 탭에서는 [이름 | 전화번호]) 영역을 복사(Ctrl+C)해 붙여넣기 하세요."></textarea>
         </div>
 
-        <!-- 출고 문구 선택 프리셋 (장문 링크포함 vs 초절약 단문) -->
+        <!-- 출고/방문 문구 선택 프리셋 (장문 vs 초절약 단문) -->
         <div class="preset-bar">
           <button type="button" class="preset-btn active" id="btnPresetLms">🔗 한진택배 조회링크 포함 (장문 LMS · 45원)</button>
           <button type="button" class="preset-btn" id="btnPresetSms">⚡ 초절약 송장 단문 (SMS · 18원)</button>
           <label style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:5px; cursor:pointer; margin-left:auto;">
-            <input type="checkbox" id="chkMergeMultiTrack" checked> 같은 번호 다중 송장 1통으로 합치기
+            <input type="checkbox" id="chkMergeMultiTrack" checked> <span id="lblMergeMultiTrack">같은 번호 다중 송장 1통으로 합치기</span>
           </label>
         </div>
 
@@ -600,7 +643,7 @@
           명단을 불러오면 발송 대상과 예상 비용이 자동 계산됩니다.
         </div>
 
-        <!-- 출고 대상 검수 테이블 -->
+        <!-- 출고/방문 대상 검수 테이블 -->
         <div class="table-wrap">
           <table class="bulk-table">
             <thead>
@@ -608,7 +651,7 @@
                 <th style="width:42px;"><input type="checkbox" id="chkAllDelivery" checked></th>
                 <th style="width:120px;">이름</th>
                 <th style="width:165px;">전화번호</th>
-                <th style="width:155px;">송장번호</th>
+                <th style="width:155px;" id="thDeliveryTrack">송장번호</th>
                 <th style="width:115px;">유형·요금</th>
                 <th>발송될 문자 미리보기 / 상태</th>
               </tr>
@@ -737,7 +780,8 @@
         fontSize: 'jn_sms_v2_fontsize',
         localTemplates: 'jn_sms_v2_templates',
         localLogs: 'jn_sms_v2_logs',
-        deliveryPreset: 'jn_sms_v2_preset'
+        deliveryPreset: 'jn_sms_v2_preset',
+        visitPreset: 'jn_sms_v2_visit_preset'
       };
 
       var ALLOWED_ERP_ORIGINS = [
@@ -782,11 +826,16 @@
         sms: '[주누디자인] {이름}님 한진택배 {송장번호} 출고되었습니다. 문의 053-267-3973'
       };
 
+      var VISIT_PRESETS = {
+        lms: '[주누디자인] {이름}님 주문하신 상품이 제작 완료되어 방문수령 가능합니다.\n■ 주소: 대구광역시 달서구 구마로39길 38\n감사합니다.',
+        sms: '[주누디자인] {이름}님 주문하신 상품 제작완료! 방문수령 가능합니다.'
+      };
+
       /* =========================================================
          2. 상태 관리 및 API 어댑터 (향후 ERP 서버 URL 1줄 교체 가능)
          ========================================================= */
       var DEFAULT_DEPLOYED_URL = 'https://script.google.com/macros/s/AKfycbzQjNqYiOkxG5pPLidLxxUTECZzZ_0UeGZD08nrNScDIRe5_1uLqPrbDHy37Mmau7NPtQ/exec';
-      var APP_VERSION = 'v3.1'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
+      var APP_VERSION = 'v3.2'; // sw.js CACHE_NAME과 함께 올리면 PC·휴대폰 버전 일치 여부를 상단에서 바로 확인 가능
 
       var state = {
         scriptUrl: localStorage.getItem(STORAGE_KEYS.scriptUrl) || DEFAULT_DEPLOYED_URL,
@@ -800,11 +849,16 @@
         availableBalance: null,
         templates: loadLocalJson(STORAGE_KEYS.localTemplates, DEFAULT_TEMPLATES),
         logs: loadLocalJson(STORAGE_KEYS.localLogs, []),
+        deliverySubMode: 'delivery',
         rawDeliveryRows: [],
+        rawVisitRows: [],
         computedDeliveryItems: [],
         rowSendResult: {},
         lastSentKeys: [],
         currentPreset: localStorage.getItem(STORAGE_KEYS.deliveryPreset) || 'lms',
+        visitPreset: localStorage.getItem(STORAGE_KEYS.visitPreset) || 'lms',
+        deliveryTplDraft: '',
+        visitTplDraft: '',
         deferredInstallPrompt: null,
         confirmCallback: null,
         sending: false,
@@ -1131,20 +1185,34 @@
         return raw;
       }
 
-      // 발송 결과를 (번호|개별 송장) 단위로 저장 → '다중 송장 합치기' 켜기/끄기·시트 재불러오기에도 실패 표시 유지
+      // 발송 결과를 (번호|개별 송장 또는 VISIT_날짜) 단위로 저장 → '다중 송장 합치기'·시트 재불러오기에도 실패 표시 유지
+      function normalizeResultTrackKey(rawTrack) {
+        var s = String(rawTrack || '').trim();
+        var vm = s.match(/^(?:방문\(|VISIT_)(\d{4}-\d{2}-\d{2})\)?$/);
+        if (vm) return ['VISIT_' + vm[1]];
+        var out = [];
+        s.split(/[,\s/]+/).forEach(function (part) {
+          var d = part.replace(/\D/g, '');
+          if (d) out.push(d);
+        });
+        return out;
+      }
+
       function markSendResult(cleanPhone, trackingStr, status, detail) {
         var ph = String(cleanPhone || '').replace(/\D/g, '');
-        String(trackingStr || '').split(/[,\s/]+/).forEach(function (part) {
-          var d = part.replace(/\D/g, '');
-          if (ph && d) state.rowSendResult[ph + '|' + d] = { status: status, detail: detail || '' };
+        if (!ph) return;
+        normalizeResultTrackKey(trackingStr).forEach(function (k) {
+          state.rowSendResult[ph + '|' + k] = { status: status, detail: detail || '' };
         });
       }
 
       function sendResOf(item) {
         var found = null;
         (item.trackingList || []).forEach(function (t) {
-          var r = state.rowSendResult[(item.cleanPhone || '') + '|' + t];
-          if (r && (!found || r.status === '실패')) found = r;
+          normalizeResultTrackKey(t).forEach(function (k) {
+            var r = state.rowSendResult[(item.cleanPhone || '') + '|' + k];
+            if (r && (!found || r.status === '실패')) found = r;
+          });
         });
         return found;
       }
@@ -1366,17 +1434,22 @@
          ========================================================= */
       function buildSentPairSetFromLocalLogs() {
         var map = {};
+        var todayDate = kstParts().date;
         state.logs.forEach(function (lg) {
           var st = String(lg.status || '');
           if (st.indexOf('실패') !== -1) return;
           if (st.indexOf('체험') !== -1 && lg.refId !== 'DIRECT_SENT') return; // 과금 없는 테스트 기록은 '발송됨' 아님
           var ph = String(lg.phone || '').replace(/\D/g, '');
-          var tr = String(lg.trackingNo || '');
-          if (!ph || !tr) return;
-          tr.split(/[,\s/]+/).forEach(function (part) {
-            var d = part.replace(/\D/g, '');
-            if (d) map[ph + '|' + d] = lg.sentAt || 'sent';
-          });
+          if (!ph) return;
+          var tr = String(lg.trackingNo || '').trim();
+          if (tr) {
+            normalizeResultTrackKey(tr).forEach(function (k) {
+              map[ph + '|' + k] = lg.sentAt || 'sent';
+            });
+          }
+          if (lg.source === 'visit' && String(lg.sentAt || '').indexOf(todayDate) === 0) {
+            map[ph + '|VISIT_' + todayDate] = lg.sentAt || 'sent';
+          }
         });
         return map;
       }
@@ -1393,17 +1466,27 @@
       }
 
       function recomputeDeliveryItems() {
+        var isVisit = state.deliverySubMode === 'visit';
         var mergeMulti = document.getElementById('chkMergeMultiTrack').checked;
         var tplText = document.getElementById('deliveryTplInput').value;
         var localSentMap = buildSentPairSetFromLocalLogs();
+        var todayDate = kstParts().date;
+        var visitLogicalKey = 'VISIT_' + todayDate;
+        var visitDisplayLabel = '방문(' + todayDate + ')';
 
-        var normalizedList = state.rawDeliveryRows.map(function (r) {
+        document.getElementById('badgeDeliveryCount').textContent = state.rawDeliveryRows.length + '건';
+        document.getElementById('badgeVisitCount').textContent = state.rawVisitRows.length + '건';
+
+        var srcRows = isVisit ? state.rawVisitRows : state.rawDeliveryRows;
+        var normalizedList = srcRows.map(function (r) {
           var p = r.phoneValid !== undefined
             ? { valid: r.phoneValid, clean: r.cleanPhone, formatted: r.phone, reason: r.phoneReason, restoredZero: r.restoredZero, isSafeNum: r.isSafeNum }
             : normalizePhone(r.rawPhone);
-          var t = r.trackingValid !== undefined
-            ? { valid: r.trackingValid, clean: r.trackingNo, reason: r.trackingReason }
-            : normalizeTracking(r.rawTracking);
+          var t = isVisit
+            ? { valid: true, clean: visitLogicalKey, reason: '' }
+            : (r.trackingValid !== undefined
+                ? { valid: r.trackingValid, clean: r.trackingNo, reason: r.trackingReason }
+                : normalizeTracking(r.rawTracking));
           var pairKey = (p.clean || '') + '|' + (t.clean || '');
           var sessRes = state.rowSendResult[pairKey];
           // 발송완료 판정 = 서버(전 직원 공용 기록) + 이 기기 발송내역 + 방금 발송 결과 (PC·휴대폰 동일)
@@ -1445,10 +1528,10 @@
         });
 
         state.computedDeliveryItems = grouped.map(function (g, idx) {
-          var hasError = !g.phoneObj.valid || !g.trackObj.valid;
-          var errReason = !g.phoneObj.valid ? g.phoneObj.reason : (!g.trackObj.valid ? g.trackObj.reason : '');
+          var hasError = !g.phoneObj.valid || (!isVisit && !g.trackObj.valid);
+          var errReason = !g.phoneObj.valid ? g.phoneObj.reason : (!isVisit && !g.trackObj.valid ? g.trackObj.reason : '');
           var isSent = Boolean(g.alreadySentAt);
-          var msg = hasError ? '' : buildDeliveryMessage(tplText, g.customerName, g.trackingList);
+          var msg = hasError ? '' : buildDeliveryMessage(tplText, g.customerName, isVisit ? [] : g.trackingList);
           var byteLen = msg ? calcEucKrBytes(msg) : 0;
           if (byteLen > 2000) {
             hasError = true;
@@ -1456,7 +1539,7 @@
           }
           var msgType = byteLen <= 90 ? 'SMS' : 'LMS';
           var unitCost = msgType === 'SMS' ? 18 : 45;
-          var rowKey = (g.phoneObj.clean || '') + '|' + g.trackingList.join(',');
+          var rowKey = (isVisit ? 'v:' : 'd:') + (g.phoneObj.clean || '') + '|' + g.trackingList.join(',');
           // 기본: 발송완료 건은 자동 체크 해제(이중과금 방지). 직원이 직접 바꾼 체크는 문구 수정·재계산에도 유지
           var manual = state.manualCheck[rowKey];
           var checked = !hasError && (manual !== undefined ? manual : !isSent);
@@ -1464,6 +1547,7 @@
           return {
             idx: idx,
             rowKey: rowKey,
+            isVisit: isVisit,
             checked: checked,
             hasError: hasError,
             errReason: errReason,
@@ -1475,7 +1559,7 @@
             restoredZero: g.phoneObj.restoredZero,
             isSafeNum: g.phoneObj.isSafeNum,
             trackingList: g.trackingList,
-            trackingDisplay: g.trackingList.join(', '),
+            trackingDisplay: isVisit ? visitDisplayLabel : g.trackingList.join(', '),
             message: msg,
             byteLen: byteLen,
             msgType: msgType,
@@ -1487,11 +1571,16 @@
       }
 
       function renderDeliveryTable() {
+        var isVisit = state.deliverySubMode === 'visit';
+        document.getElementById('thDeliveryTrack').style.display = isVisit ? 'none' : '';
         var tbody = document.getElementById('deliveryTableBody');
         tbody.innerHTML = '';
 
         if (state.computedDeliveryItems.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:28px; color:var(--text-sub);">불러온 배송데이터가 없습니다. 시트에 입력 후 [🔄 시트 『배송데이터』 불러오기]를 눌러주세요.</td></tr>';
+          var emptyMsg = isVisit
+            ? '불러온 방문문자 명단이 없습니다. 시트 E~F열(방문문자)에 입력 후 [① 시트 불러오기]를 눌러주세요.'
+            : '불러온 택배출고 명단이 없습니다. 시트 A~C열(택배출고발송)에 입력 후 [① 시트 불러오기]를 눌러주세요.';
+          tbody.innerHTML = '<tr><td colspan="' + (isVisit ? 5 : 6) + '" style="text-align:center; padding:28px; color:var(--text-sub);">' + emptyMsg + '</td></tr>';
           updateDeliverySummary();
           return;
         }
@@ -1536,11 +1625,15 @@
           tdPhone.innerHTML = phoneHtml;
 
           var tdTrack = document.createElement('td');
-          var trackHtml = escapeHtml(item.trackingDisplay || '-');
-          if (item.trackingList.length > 1) {
-            trackHtml += ' <span class="tag ok">' + item.trackingList.length + '건 병합</span>';
+          if (isVisit) {
+            tdTrack.style.display = 'none';
+          } else {
+            var trackHtml = escapeHtml(item.trackingDisplay || '-');
+            if (item.trackingList.length > 1) {
+              trackHtml += ' <span class="tag ok">' + item.trackingList.length + '건 병합</span>';
+            }
+            tdTrack.innerHTML = trackHtml;
           }
-          tdTrack.innerHTML = trackHtml;
 
           var tdCost = document.createElement('td');
           if (item.hasError) {
@@ -1606,9 +1699,10 @@
 
         var sendBtn = document.getElementById('btnSendDeliveryBulk');
         if (state.sending) return; // 발송 중에는 진행률 문구 유지
+        var modeWord = state.deliverySubMode === 'visit' ? '방문 문자' : '송장 문자';
         sendBtn.disabled = selected.length === 0;
         sendBtn.textContent = selected.length > 0
-          ? '② 선택된 ' + selected.length + '건 문자 일괄 발송하기 (약 ' + totalCost.toLocaleString() + '원)'
+          ? '② 선택된 ' + selected.length + '건 ' + modeWord + ' 일괄 발송하기 (약 ' + totalCost.toLocaleString() + '원)'
           : '② 발송할 대상을 선택해 주세요';
       }
 
@@ -1787,8 +1881,14 @@
           // 발송 결과(실패 표시)는 유지: 다시 불러와도 빨간 실패 표시가 사라지지 않음 (비우기 때만 초기화)
           var resp = await SmsApiAdapter.request('loadDeliverySheet', {});
           state.rawDeliveryRows = resp.rows || [];
-          recomputeDeliveryItems();
-          showToast('✅ 『배송데이터』 탭에서 ' + state.rawDeliveryRows.length + '건을 불러왔습니다.');
+          state.rawVisitRows = resp.visitRows || [];
+          // 택배가 0건이고 방문만 있으면 자동으로 방문 탭을 보여줌
+          if (state.rawDeliveryRows.length === 0 && state.rawVisitRows.length > 0 && state.deliverySubMode === 'delivery') {
+            switchDeliverySubMode('visit');
+          } else {
+            recomputeDeliveryItems();
+          }
+          showToast('✅ 『배송데이터』 불러오기 완료 (택배 ' + state.rawDeliveryRows.length + '건 · 방문 ' + state.rawVisitRows.length + '건)');
         } catch (err) {
           showToast('❌ 불러오기 실패: ' + err.message);
         } finally {
@@ -1814,13 +1914,14 @@
           }
         }
 
+        var isVisit = state.deliverySubMode === 'visit';
         openConfirmModal(
-          '📦 택배 출고 문자 일괄 발송 확인',
+          isVisit ? '🏪 방문수령 안내 문자 일괄 발송 확인' : '📦 택배 출고 문자 일괄 발송 확인',
           '• 발송 인원: 총 ' + targets.length + '명\n' +
           '• 발신 번호: 주누디자인 (' + state.senderPhone + ')\n' +
           '• 예상 비용: 약 ' + totalCost.toLocaleString() + '원\n' +
           (resendCount ? '• ⚠️ 이미 발송완료된 ' + resendCount + '명에게 다시 보냅니다 (직접 체크한 건)\n' : '') + '\n' +
-          '선택된 고객에게 출고 안내 문자를 지금 일괄 발송하시겠습니까?',
+          (isVisit ? '선택된 고객에게 방문수령 안내 문자를 지금 일괄 발송하시겠습니까?' : '선택된 고객에게 출고 안내 문자를 지금 일괄 발송하시겠습니까?'),
           function () { executeBulkSend(targets); }
         );
       }
@@ -1844,9 +1945,8 @@
             var failed = String(r.status || '').indexOf('실패') !== -1;
             markSendResult(ph, r.trackingNo, failed ? '실패' : (testMode ? '테스트' : '완료'), r.detail);
             if (!failed && !testMode) {
-              String(r.trackingNo || '').split(/[,\s/]+/).forEach(function (part) {
-                var d = part.replace(/\D/g, '');
-                if (ph && d) state.lastSentKeys.push(ph + '|' + d);
+              normalizeResultTrackKey(r.trackingNo).forEach(function (k) {
+                if (ph && k) state.lastSentKeys.push(ph + '|' + k);
               });
             }
           });
@@ -1867,7 +1967,7 @@
             current = targets.slice(off, off + chunkSize);
             btn.textContent = '⏳ 발송 중... (' + Math.min(off + current.length, targets.length) + ' / ' + targets.length + '명)';
             var items = current.map(function (t) {
-              return { phone: t.formattedPhone, customerName: t.customerName, trackingNo: t.trackingDisplay, message: t.message, source: 'delivery' };
+              return { phone: t.formattedPhone, customerName: t.customerName, trackingNo: t.trackingDisplay, message: t.message, source: t.isVisit ? 'visit' : 'delivery' };
             });
 
             var chunkHandledDirect = false;
@@ -1930,22 +2030,29 @@
       }
 
       function handleClearSentFromDeliverySheet() {
+        var isVisit = state.deliverySubMode === 'visit';
+        var scope = isVisit ? 'visit' : 'delivery';
+        var areaLabel = isVisit ? '방문문자(E3:F)' : '택배출고발송(A3:C)';
+        var otherLabel = isVisit ? '택배출고발송(A3:C)' : '방문문자(E3:F)';
         var notDone = state.computedDeliveryItems.filter(function (i) { return !i.isSent; }).length;
         openConfirmModal(
-          '🗑️ 『배송데이터』 시트 깨끗하게 비우기',
-          '• 1행 제목(이름 | 전화번호 | 송장번호)만 남기고 아래 명단을 모두 지웁니다.\n' +
+          '🗑️ 『' + areaLabel + '』 명단 깨끗하게 비우기',
+          '• 1~2행 제목과 반대쪽 ' + otherLabel + ' 명단은 그대로 유지합니다.\n' +
+          '• ' + areaLabel + ' 아래 명단만 모두 지웁니다.\n' +
           (notDone ? '• ⚠️ 아직 발송 안 됨·실패·오류 ' + notDone + '건도 함께 지워집니다.\n' : '') +
-          '\n지금 『배송데이터』 탭을 비우시겠습니까?',
+          '\n지금 ' + areaLabel + ' 명단을 비우시겠습니까?',
           async function () {
-            function resetLocal(rows) {
+            function resetLocal(rows, visitRows) {
               state.lastSentKeys = [];
               state.rowSendResult = {};
               state.manualCheck = {};
-              state.rawDeliveryRows = rows || [];
+              if (rows !== undefined) state.rawDeliveryRows = rows || [];
+              if (visitRows !== undefined) state.rawVisitRows = visitRows || [];
               recomputeDeliveryItems();
             }
             if (!SmsApiAdapter.isConnected()) { // PIN 연결 전 '파일·복붙'으로 넣은 화면 목록만 비움
-              resetLocal([]);
+              if (isVisit) resetLocal(undefined, []);
+              else resetLocal([], undefined);
               showToast('🗑️ 화면 목록을 비웠습니다.');
               return;
             }
@@ -1954,9 +2061,12 @@
             try {
               var resp;
               try {
-                resp = await SmsApiAdapter.request('clearDeliveryAll', {});
+                resp = await SmsApiAdapter.request('clearDeliveryAll', { scope: scope });
               } catch (eAll) {
                 if (eAll.code !== 'UNKNOWN_ACTION') throw eAll; // PIN 오류·BUSY·네트워크는 그대로 안내
+                if (isVisit) {
+                  throw new Error('구글 서버 스크립트(Code.gs v2.3) 재배포 후 방문 명단 비우기가 지원됩니다.');
+                }
                 // 구버전 GAS(v1) 호환: 시트의 모든 유효 (번호|송장) 키를 전달해 지울 수 있는 행은 모두 삭제
                 var everyRowKey = [];
                 state.rawDeliveryRows.forEach(function (r) {
@@ -1966,15 +2076,15 @@
                 });
                 resp = await SmsApiAdapter.request('clearDeliverySent', { sentKeys: everyRowKey.concat(state.lastSentKeys || []) });
               }
-              resetLocal(resp && resp.rows);
-              if (state.rawDeliveryRows.length > 0) {
-                var left = state.rawDeliveryRows.slice(0, 5).map(function (r) { return r.customerName || '(이름없음)'; }).join(', ');
-                openConfirmModal('⚠️ ' + state.rawDeliveryRows.length + '개 행이 시트에 남았습니다',
-                  '현재 구글 서버 스크립트가 구버전(v1)이라 전화번호·송장번호가 비어있는 행(' + left + ')은 지우지 못합니다.\n\n' +
-                  '✅ 해결(관리자 1회): 새 Code.gs를 Apps Script에 붙여넣고 [배포 → 배포 관리 → ✏️ → 새 버전 → 배포]를 누르면 다음부터 한 번에 깨끗하게 지워집니다.\n\n' +
-                  '지금은 시트에서 해당 행을 직접 지워 주세요.', null);
+              resetLocal(resp ? resp.rows : [], resp && resp.visitRows !== undefined ? resp.visitRows : (isVisit ? [] : state.rawVisitRows));
+              var leftList = isVisit ? state.rawVisitRows : state.rawDeliveryRows;
+              if (leftList.length > 0) {
+                var left = leftList.slice(0, 5).map(function (r) { return r.customerName || '(이름없음)'; }).join(', ');
+                openConfirmModal('⚠️ ' + leftList.length + '개 행이 시트에 남았습니다',
+                  '현재 구글 서버 스크립트가 구버전이라 일부 행(' + left + ')이 남았습니다.\n\n' +
+                  '✅ 해결(관리자 1회): 새 Code.gs(v2.3)를 Apps Script에 붙여넣고 [배포 → 배포 관리 → ✏️ → 새 버전 → 배포]를 눌러주세요.', null);
               } else {
-                showToast('🗑️ 『배송데이터』 시트를 깨끗하게 비웠습니다!');
+                showToast('🗑️ ' + areaLabel + ' 명단을 깨끗하게 비웠습니다!');
               }
             } catch (err) {
               showToast('❌ 시트 비우기 실패: ' + err.message);
@@ -2058,18 +2168,23 @@
             else if (/송장|운송장|등기/.test(c)) trackIdx = idx;
           });
         }
+        var isVisit = state.deliverySubMode === 'visit';
         var out = [];
         for (var i = startRow; i < rows2d.length; i++) {
           var r = rows2d[i] || [];
           var nm = String(r[nameIdx] == null ? '' : r[nameIdx]).trim();
           var ph = String(r[phoneIdx] == null ? '' : r[phoneIdx]).trim();
-          var tr = String(r[trackIdx] == null ? '' : r[trackIdx]).trim();
+          var tr = isVisit ? '' : String(r[trackIdx] == null ? '' : r[trackIdx]).trim();
           if (!nm && !ph && !tr) continue;
-          out.push({ customerName: nm, rawPhone: ph, rawTracking: tr });
+          out.push(isVisit ? { customerName: nm, rawPhone: ph } : { customerName: nm, rawPhone: ph, rawTracking: tr });
         }
-        state.rawDeliveryRows = out;
+        if (isVisit) {
+          state.rawVisitRows = out;
+        } else {
+          state.rawDeliveryRows = out;
+        }
         recomputeDeliveryItems();
-        showToast('✅ ' + out.length + '건의 출고 명단을 불러왔습니다.');
+        showToast('✅ ' + out.length + '건의 ' + (isVisit ? '방문문자' : '출고') + ' 명단을 불러왔습니다.');
       }
 
       function parseDelimitedText(text) {
@@ -2230,17 +2345,60 @@
         document.getElementById('panelSingle').classList.toggle('active', isSingle);
         document.getElementById('panelDelivery').classList.toggle('active', !isSingle);
 
-        if (!isSingle && state.rawDeliveryRows.length === 0) {
+        if (!isSingle && state.rawDeliveryRows.length === 0 && state.rawVisitRows.length === 0) {
           handleLoadDeliveryFromSheet();
         }
       }
 
+      function switchDeliverySubMode(mode) {
+        var nextMode = mode === 'visit' ? 'visit' : 'delivery';
+        var tplEl = document.getElementById('deliveryTplInput');
+        if (state.deliverySubMode === 'visit') {
+          state.visitTplDraft = tplEl.value;
+        } else {
+          state.deliveryTplDraft = tplEl.value;
+        }
+        state.deliverySubMode = nextMode;
+        var isVisit = nextMode === 'visit';
+
+        document.getElementById('btnSubDelivery').classList.toggle('active', !isVisit);
+        document.getElementById('btnSubVisit').classList.toggle('active', isVisit);
+        document.getElementById('btnClearSentDelivery').textContent = isVisit ? '③ 방문 명단 비우기' : '③ 택배 명단 비우기';
+        document.getElementById('btnPresetLms').textContent = isVisit
+          ? '📍 주소 포함 방문 안내 (장문 LMS · 45원)'
+          : '🔗 한진택배 조회링크 포함 (장문 LMS · 45원)';
+        document.getElementById('btnPresetSms').textContent = isVisit
+          ? '⚡ 초절약 방문 단문 (SMS · 18원)'
+          : '⚡ 초절약 송장 단문 (SMS · 18원)';
+        document.getElementById('lblMergeMultiTrack').textContent = isVisit
+          ? '같은 번호 중복 1통으로 합치기'
+          : '같은 번호 다중 송장 1통으로 합치기';
+
+        var activePreset = isVisit ? state.visitPreset : state.currentPreset;
+        document.getElementById('btnPresetLms').classList.toggle('active', activePreset === 'lms');
+        document.getElementById('btnPresetSms').classList.toggle('active', activePreset === 'sms');
+
+        var draft = isVisit ? state.visitTplDraft : state.deliveryTplDraft;
+        tplEl.value = draft || (isVisit ? VISIT_PRESETS[activePreset] : DELIVERY_PRESETS[activePreset]);
+        recomputeDeliveryItems();
+      }
+
       function applyDeliveryPreset(presetKey) {
-        state.currentPreset = presetKey === 'sms' ? 'sms' : 'lms';
-        localStorage.setItem(STORAGE_KEYS.deliveryPreset, state.currentPreset);
-        document.getElementById('btnPresetLms').classList.toggle('active', state.currentPreset === 'lms');
-        document.getElementById('btnPresetSms').classList.toggle('active', state.currentPreset === 'sms');
-        document.getElementById('deliveryTplInput').value = DELIVERY_PRESETS[state.currentPreset];
+        var key = presetKey === 'sms' ? 'sms' : 'lms';
+        var isVisit = state.deliverySubMode === 'visit';
+        if (isVisit) {
+          state.visitPreset = key;
+          localStorage.setItem(STORAGE_KEYS.visitPreset, key);
+          state.visitTplDraft = VISIT_PRESETS[key];
+          document.getElementById('deliveryTplInput').value = VISIT_PRESETS[key];
+        } else {
+          state.currentPreset = key;
+          localStorage.setItem(STORAGE_KEYS.deliveryPreset, key);
+          state.deliveryTplDraft = DELIVERY_PRESETS[key];
+          document.getElementById('deliveryTplInput').value = DELIVERY_PRESETS[key];
+        }
+        document.getElementById('btnPresetLms').classList.toggle('active', key === 'lms');
+        document.getElementById('btnPresetSms').classList.toggle('active', key === 'sms');
         recomputeDeliveryItems();
       }
 
@@ -2394,6 +2552,8 @@
         document.getElementById('btnSaveAddTpl').addEventListener('click', handleSaveTemplate);
 
         // 배송데이터 탭 이벤트
+        document.getElementById('btnSubDelivery').addEventListener('click', function () { switchDeliverySubMode('delivery'); });
+        document.getElementById('btnSubVisit').addEventListener('click', function () { switchDeliverySubMode('visit'); });
         document.getElementById('btnLoadDeliverySheet').addEventListener('click', handleLoadDeliveryFromSheet);
         document.getElementById('btnClearSentDelivery').addEventListener('click', handleClearSentFromDeliverySheet);
         document.getElementById('btnToggleManualImport').addEventListener('click', function () {
@@ -2404,7 +2564,11 @@
         document.getElementById('btnPresetLms').addEventListener('click', function () { applyDeliveryPreset('lms'); });
         document.getElementById('btnPresetSms').addEventListener('click', function () { applyDeliveryPreset('sms'); });
         document.getElementById('chkMergeMultiTrack').addEventListener('change', recomputeDeliveryItems);
-        document.getElementById('deliveryTplInput').addEventListener('input', recomputeDeliveryItems);
+        document.getElementById('deliveryTplInput').addEventListener('input', function () {
+          if (state.deliverySubMode === 'visit') state.visitTplDraft = this.value;
+          else state.deliveryTplDraft = this.value;
+          recomputeDeliveryItems();
+        });
 
         document.getElementById('chkAllDelivery').addEventListener('change', function (e) {
           var checked = e.target.checked;

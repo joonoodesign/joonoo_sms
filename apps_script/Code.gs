@@ -11,7 +11,7 @@ var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
 var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
-var SERVER_VERSION_ = "2.2";
+var SERVER_VERSION_ = "2.3";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -381,13 +381,22 @@ function buildSentIndex_(logSheet) {
     }
 
     if (trackingRaw) {
-      var parts = trackingRaw.split(/[,\s/]+/);
-      for (var k = 0; k < parts.length; k++) {
-        var tDigits = parts[k].replace(/\D/g, "");
-        if (tDigits) {
-          sentPairMap[cleanPhone + "|" + tDigits] = sentAt;
+      var visitMatch = trackingRaw.match(/^(?:방문\(|VISIT_)(\d{4}-\d{2}-\d{2})\)?$/);
+      if (visitMatch) {
+        sentPairMap[cleanPhone + "|VISIT_" + visitMatch[1]] = sentAt;
+      } else {
+        var parts = trackingRaw.split(/[,\s/]+/);
+        for (var k = 0; k < parts.length; k++) {
+          var tDigits = parts[k].replace(/\D/g, "");
+          if (tDigits) {
+            sentPairMap[cleanPhone + "|" + tDigits] = sentAt;
+          }
         }
       }
+    }
+    var srcCol = String(r[10] || "").trim();
+    if (srcCol === "visit" && sentAt.indexOf(todayPrefix) === 0) {
+      sentPairMap[cleanPhone + "|VISIT_" + todayPrefix] = sentAt;
     }
   }
   return { sentPairMap: sentPairMap, todayPhoneMap: todayPhoneMap };
@@ -541,88 +550,167 @@ function verifyPinWithRateLimit_(providedPin, expectedPin) {
 }
 
 /**
- * 1행이 제목줄(이름|전화번호|송장번호)인지 판별 — 실제 전화번호/송장 숫자가 들어있으면 제목줄 아님 ('김고객' 오탐 방지)
+ * 제목줄(택배출고발송/방문문자 섹션줄 또는 이름|전화번호|송장번호 컬럼줄) 판별
+ * — 실제 전화번호/송장 숫자가 들어있으면 제목줄 아님 ('김고객' 오탐 방지)
  */
 function isDeliveryHeaderRow_(row) {
-  var cells = (row || []).slice(0, 6).map(function (v) { return String(v == null ? "" : v).replace(/\s+/g, ""); });
+  var cells = (row || []).slice(0, 10).map(function (v) { return String(v == null ? "" : v).replace(/\s+/g, ""); });
   for (var i = 0; i < cells.length; i++) {
     if (normalizeReceiverPhone_(cells[i]).valid || /^\d{9,16}$/.test(cells[i])) return false;
   }
-  return /이름|성명|수령인|받는분|고객명|전화|연락처|휴대폰|송장|운송장|등기/.test(cells.join("|"));
+  return /이름|성명|수령인|받는분|고객명|전화|연락처|휴대폰|송장|운송장|등기|택배|출고|방문|문자/.test(cells.join("|"));
+}
+
+/**
+ * 1행(택배출고발송 / 방문문자) + 2행(이름|전화번호|송장번호 | | 이름|전화번호) 2단 헤더 및 구버전 1단 헤더 자동 감지
+ */
+function detectDeliveryLayout_(dispVals) {
+  var layout = {
+    headerRowCount: 0,
+    nameCol: 0,
+    phoneCol: 1,
+    trackCol: 2,
+    visitNameCol: -1,
+    visitPhoneCol: -1
+  };
+  if (!dispVals || dispVals.length === 0) return layout;
+
+  var r0Header = isDeliveryHeaderRow_(dispVals[0]);
+  var r1Header = dispVals.length > 1 && isDeliveryHeaderRow_(dispVals[1]);
+  if (r0Header && r1Header) {
+    layout.headerRowCount = 2;
+  } else if (r0Header) {
+    layout.headerRowCount = 1;
+  } else {
+    layout.headerRowCount = 0;
+  }
+
+  // 1행 섹션 배너에서 '방문' 시작 열 탐색 (예: E1 = '방문문자' -> index 4)
+  var visitStartHint = -1;
+  if (layout.headerRowCount >= 1) {
+    var topRow = dispVals[0] || [];
+    for (var c0 = 0; c0 < topRow.length; c0++) {
+      var t0 = String(topRow[c0] || "").replace(/\s+/g, "");
+      if (t0 && /방문/.test(t0) && c0 >= 3) {
+        visitStartHint = c0;
+        break;
+      }
+    }
+  }
+
+  // 컬럼 헤더 행(2단이면 2행, 1단이면 1행)에서 택배/방문 열 매핑
+  if (layout.headerRowCount >= 1) {
+    var hdr = dispVals[layout.headerRowCount - 1] || [];
+    var splitCol = visitStartHint >= 0 ? visitStartHint : 4;
+    var foundName = false, foundPhone = false, foundTrack = false;
+    for (var c = 0; c < Math.min(hdr.length, splitCol); c++) {
+      var hc = String(hdr[c] || "").replace(/\s+/g, "");
+      if (!foundName && /이름|성명|수령인|받는분성명|고객명/.test(hc)) { layout.nameCol = c; foundName = true; }
+      else if (!foundPhone && /전화|휴대폰|연락처|핸드폰/.test(hc)) { layout.phoneCol = c; foundPhone = true; }
+      else if (!foundTrack && /송장|운송장|등기번호/.test(hc)) { layout.trackCol = c; foundTrack = true; }
+    }
+    var foundVName = false, foundVPhone = false;
+    for (var vc = Math.max(3, visitStartHint >= 0 ? visitStartHint : 3); vc < hdr.length; vc++) {
+      var vhc = String(hdr[vc] || "").replace(/\s+/g, "");
+      if (!foundVName && /이름|성명|수령인|받는분성명|고객명/.test(vhc)) { layout.visitNameCol = vc; foundVName = true; }
+      else if (!foundVPhone && /전화|휴대폰|연락처|핸드폰/.test(vhc)) { layout.visitPhoneCol = vc; foundVPhone = true; }
+    }
+    if (visitStartHint >= 0 && layout.visitNameCol < 0 && layout.visitPhoneCol < 0) {
+      layout.visitNameCol = visitStartHint;
+      layout.visitPhoneCol = visitStartHint + 1;
+    }
+  }
+  return layout;
 }
 
 function readDeliverySheetRows_(logSheet) {
   var deliverySheet = getIsolatedDeliverySheet_(getDeliverySpreadsheetId_());
   var lastRow = deliverySheet.getLastRow();
   if (lastRow === 0) {
-    return { rows: [], sheetName: deliverySheet.getName(), headerValid: true };
+    return { rows: [], visitRows: [], sheetName: deliverySheet.getName(), headerRowCount: 0 };
   }
-  var colCount = Math.max(3, Math.min(deliverySheet.getLastColumn(), 6));
+  var colCount = Math.max(6, Math.min(deliverySheet.getLastColumn(), 10));
   var range = deliverySheet.getRange(1, 1, lastRow, colCount);
   var rawVals = range.getValues();
   var dispVals = range.getDisplayValues();
 
-  // 1행 헤더 탐색 (기본 A:이름, B:전화번호, C:송장번호 고정 매핑 + 헤더명 유연 인식)
-  var nameCol = 0;
-  var phoneCol = 1;
-  var trackCol = 2;
-  var startIdx = 0;
-
-  if (dispVals.length > 0 && isDeliveryHeaderRow_(dispVals[0])) {
-    startIdx = 1;
-    var foundName = false, foundPhone = false, foundTrack = false; // 열마다 최초 1회만 매칭 (D열 '운송장상태' 등이 덮어쓰지 않게)
-    for (var c = 0; c < dispVals[0].length; c++) {
-      var hc = String(dispVals[0][c] || "").replace(/\s+/g, "");
-      if (!foundName && /이름|성명|수령인|받는분성명|고객명/.test(hc)) { nameCol = c; foundName = true; }
-      else if (!foundPhone && /전화|휴대폰|연락처|핸드폰/.test(hc)) { phoneCol = c; foundPhone = true; }
-      else if (!foundTrack && /송장|운송장|등기번호/.test(hc)) { trackCol = c; foundTrack = true; }
-    }
-  }
-
+  var layout = detectDeliveryLayout_(dispVals);
+  var startIdx = layout.headerRowCount;
+  var todayStr = todayKstPrefix_();
   var sentIdx = buildSentIndex_(logSheet);
   var resultRows = [];
+  var visitRows = [];
 
   for (var r = startIdx; r < dispVals.length; r++) {
     var dRow = dispVals[r];
     var vRow = rawVals[r];
-    var rawName = String(dRow[nameCol] == null ? "" : dRow[nameCol]).trim();
-    var rawPhone = String(dRow[phoneCol] == null ? "" : dRow[phoneCol]).trim();
-    var dispTrack = String(dRow[trackCol] == null ? "" : dRow[trackCol]).trim();
-    var valTrack = vRow[trackCol];
 
-    // 빈 줄 무시
-    if (!rawName && !rawPhone && !dispTrack) continue;
-    // 중간에 중복 붙여넣기된 헤더 줄 무시
-    if (rawName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawPhone) && /송장/.test(dispTrack)) {
-      continue;
+    // 1) 좌측: 택배출고발송 (A:이름 | B:전화번호 | C:송장번호)
+    var rawName = String(dRow[layout.nameCol] == null ? "" : dRow[layout.nameCol]).trim();
+    var rawPhone = String(dRow[layout.phoneCol] == null ? "" : dRow[layout.phoneCol]).trim();
+    var dispTrack = String(dRow[layout.trackCol] == null ? "" : dRow[layout.trackCol]).trim();
+    var valTrack = vRow[layout.trackCol];
+
+    if (rawName || rawPhone || dispTrack) {
+      var isDupHdr = rawName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawPhone) && /송장/.test(dispTrack);
+      if (!isDupHdr) {
+        var pInfo = normalizeReceiverPhone_(rawPhone);
+        var tInfo = normalizeTrackingNo_(valTrack, dispTrack);
+        var pairKey = (pInfo.clean || "") + "|" + (tInfo.clean || "");
+        var alreadySentAt = (pInfo.valid && tInfo.valid && sentIdx.sentPairMap[pairKey]) ? sentIdx.sentPairMap[pairKey] : "";
+
+        resultRows.push({
+          sheetRow: r + 1,
+          customerName: rawName,
+          rawPhone: rawPhone,
+          phone: pInfo.valid ? pInfo.formatted : rawPhone,
+          cleanPhone: pInfo.clean,
+          phoneValid: pInfo.valid,
+          phoneReason: pInfo.reason,
+          restoredZero: pInfo.restoredZero,
+          isSafeNum: pInfo.isSafeNum,
+          rawTracking: dispTrack,
+          trackingNo: tInfo.clean || dispTrack,
+          trackingValid: tInfo.valid,
+          trackingReason: tInfo.reason,
+          alreadySentAt: alreadySentAt
+        });
+      }
     }
 
-    var pInfo = normalizeReceiverPhone_(rawPhone);
-    var tInfo = normalizeTrackingNo_(valTrack, dispTrack);
-    var pairKey = (pInfo.clean || "") + "|" + (tInfo.clean || "");
-    var alreadySentAt = (pInfo.valid && tInfo.valid && sentIdx.sentPairMap[pairKey]) ? sentIdx.sentPairMap[pairKey] : "";
+    // 2) 우측: 방문문자 (E:이름 | F:전화번호)
+    if (layout.visitNameCol >= 0 && layout.visitPhoneCol >= 0 && layout.visitPhoneCol < dRow.length) {
+      var rawVName = String(dRow[layout.visitNameCol] == null ? "" : dRow[layout.visitNameCol]).trim();
+      var rawVPhone = String(dRow[layout.visitPhoneCol] == null ? "" : dRow[layout.visitPhoneCol]).trim();
+      if (rawVName || rawVPhone) {
+        var isDupVHdr = rawVName.replace(/\s+/g, "") === "이름" && /전화|연락처/.test(rawVPhone);
+        if (!isDupVHdr) {
+          var vpInfo = normalizeReceiverPhone_(rawVPhone);
+          var visitKey = (vpInfo.clean || "") + "|VISIT_" + todayStr;
+          var visitSentAt = (vpInfo.valid && sentIdx.sentPairMap[visitKey]) ? sentIdx.sentPairMap[visitKey] : "";
 
-    resultRows.push({
-      sheetRow: r + 1,
-      customerName: rawName,
-      rawPhone: rawPhone,
-      phone: pInfo.valid ? pInfo.formatted : rawPhone,
-      cleanPhone: pInfo.clean,
-      phoneValid: pInfo.valid,
-      phoneReason: pInfo.reason,
-      restoredZero: pInfo.restoredZero,
-      isSafeNum: pInfo.isSafeNum,
-      rawTracking: dispTrack,
-      trackingNo: tInfo.clean || dispTrack,
-      trackingValid: tInfo.valid,
-      trackingReason: tInfo.reason,
-      alreadySentAt: alreadySentAt
-    });
+          visitRows.push({
+            sheetRow: r + 1,
+            customerName: rawVName,
+            rawPhone: rawVPhone,
+            phone: vpInfo.valid ? vpInfo.formatted : rawVPhone,
+            cleanPhone: vpInfo.clean,
+            phoneValid: vpInfo.valid,
+            phoneReason: vpInfo.reason,
+            restoredZero: vpInfo.restoredZero,
+            isSafeNum: vpInfo.isSafeNum,
+            alreadySentAt: visitSentAt
+          });
+        }
+      }
+    }
   }
 
   return {
     rows: resultRows,
-    sheetName: deliverySheet.getName()
+    visitRows: visitRows,
+    sheetName: deliverySheet.getName(),
+    headerRowCount: layout.headerRowCount
   };
 }
 
@@ -912,7 +1000,7 @@ function doPost(e) {
       }
     }
 
-    // 6. 원격 접수대장 통합 시트의 '배송데이터' 탭 실시간 불러오기
+    // 6. 원격 접수대장 통합 시트의 '배송데이터' 탭 실시간 불러오기 (택배 A:C + 방문 E:F 동시 반환)
     if (action === "loadDeliverySheet") {
       var localDb = ensureLocalSheets_();
       var loaded = readDeliverySheetRows_(localDb.logSheet);
@@ -920,7 +1008,9 @@ function doPost(e) {
         ok: true,
         action: "loadDeliverySheet",
         sheetName: loaded.sheetName,
-        rows: loaded.rows
+        headerRowCount: loaded.headerRowCount,
+        rows: loaded.rows,
+        visitRows: loaded.visitRows || []
       });
     }
 
@@ -945,11 +1035,15 @@ function doPost(e) {
         }
 
         var dLastRow = dSheet.getLastRow();
-        if (dLastRow <= 1) {
-          return jsonOut_({ ok: true, removedCount: 0, remainingCount: 0, rows: [] });
+        var topCntSent = Math.min(2, dLastRow);
+        var topValsSent = topCntSent > 0 ? dSheet.getRange(1, 1, topCntSent, Math.max(6, dSheet.getLastColumn())).getDisplayValues() : [];
+        var laySent = detectDeliveryLayout_(topValsSent);
+        var startRowSent = laySent.headerRowCount + 1;
+        if (dLastRow < startRowSent) {
+          return jsonOut_({ ok: true, removedCount: 0, remainingCount: 0, rows: [], visitRows: [] });
         }
 
-        var dRange = dSheet.getRange(2, 1, dLastRow - 1, 3);
+        var dRange = dSheet.getRange(startRowSent, 1, dLastRow - startRowSent + 1, 3);
         var rawRows = dRange.getValues();
         var dispRows = dRange.getDisplayValues();
         var keptRows = [];
@@ -974,10 +1068,10 @@ function doPost(e) {
           }
         }
 
-        // A2:C 기존 데이터 내용만 비우고(서식 보존), 미발송 행이 있으면 2행부터 다시 채움
+        // 헤더 이후 데이터 내용만 비우고(서식 보존), 미발송 행이 있으면 startRowSent부터 다시 채움
         dRange.clearContent();
         if (keptRows.length > 0) {
-          dSheet.getRange(2, 1, keptRows.length, 3).setNumberFormat("@").setValues(keptRows);
+          dSheet.getRange(startRowSent, 1, keptRows.length, 3).setNumberFormat("@").setValues(keptRows);
         }
 
         var refreshed = readDeliverySheetRows_(localForClr.logSheet);
@@ -986,7 +1080,8 @@ function doPost(e) {
           action: "clearDeliverySent",
           removedCount: removedCount,
           remainingCount: keptRows.length,
-          rows: refreshed.rows
+          rows: refreshed.rows,
+          visitRows: refreshed.visitRows || []
         });
       } finally {
         SpreadsheetApp.flush();
@@ -994,7 +1089,7 @@ function doPost(e) {
       }
     }
 
-    // 7-1. '배송데이터' 탭 1행 제목만 남기고 2행부터 전체 깨끗하게 비우기
+    // 7-1. '배송데이터' 탭 제목줄(1~2행)만 남기고 데이터 영역만 깨끗하게 비우기 (scope: 'delivery' | 'visit' | 'all')
     if (action === "clearDeliveryAll") {
       var lockAll = LockService.getScriptLock();
       if (!lockAll.tryLock(25000)) {
@@ -1005,24 +1100,37 @@ function doPost(e) {
         if (String(dSheetAll.getName() || "").trim() !== DELIVERY_SHEET_NAME_) {
           return jsonOut_({ ok: false, error: "SHEET_GUARD", message: "안전 보호: 대상 탭 이름이 '배송데이터'가 아니므로 비우기를 중단했습니다." });
         }
+        var scope = String(data.scope || "all").trim();
         var lastRowAll = dSheetAll.getLastRow();
         var removedAll = 0;
         if (lastRowAll >= 1) {
-          // 1행이 제목줄이면 2행부터, 제목줄이 없으면 1행부터 전부 비움 (이름만 있는 불완전 행도 100% 삭제)
-          var maxColAll = Math.min(dSheetAll.getMaxColumns(), Math.max(3, dSheetAll.getLastColumn()));
-          var firstRowVals = dSheetAll.getRange(1, 1, 1, maxColAll).getDisplayValues()[0];
-          var fromRow = isDeliveryHeaderRow_(firstRowVals) ? 2 : 1;
+          var maxColAll = Math.min(dSheetAll.getMaxColumns(), Math.max(6, dSheetAll.getLastColumn()));
+          var topCount = Math.min(2, lastRowAll);
+          var topVals = dSheetAll.getRange(1, 1, topCount, maxColAll).getDisplayValues();
+          var lay = detectDeliveryLayout_(topVals);
+          var fromRow = lay.headerRowCount + 1;
           if (lastRowAll >= fromRow) {
             removedAll = lastRowAll - fromRow + 1;
-            dSheetAll.getRange(fromRow, 1, removedAll, maxColAll).clearContent();
+            if (scope === "delivery") {
+              dSheetAll.getRange(fromRow, 1, removedAll, 3).clearContent();
+            } else if (scope === "visit") {
+              var vStartCol = lay.visitNameCol >= 0 ? (lay.visitNameCol + 1) : 5;
+              dSheetAll.getRange(fromRow, vStartCol, removedAll, 2).clearContent();
+            } else {
+              dSheetAll.getRange(fromRow, 1, removedAll, maxColAll).clearContent();
+            }
           }
         }
+        var localAfterAll = ensureLocalSheets_();
+        var refreshedAll = readDeliverySheetRows_(localAfterAll.logSheet);
         return jsonOut_({
           ok: true,
           action: "clearDeliveryAll",
+          scope: scope,
           removedCount: removedAll,
-          remainingCount: 0,
-          rows: []
+          remainingCount: (refreshedAll.rows.length + (refreshedAll.visitRows || []).length),
+          rows: refreshedAll.rows,
+          visitRows: refreshedAll.visitRows || []
         });
       } finally {
         SpreadsheetApp.flush();
@@ -1102,12 +1210,22 @@ function doPost(e) {
             continue;
           }
 
-          // 송장 발송 시 이미 발송된 (번호+송장) 서버 락 내부 재검증
-          if (skipAlreadySent && trackStr) {
-            var firstTrack = trackStr.split(/[,\s/]+/)[0].replace(/\D/g, "");
-            if (firstTrack && sentCheck.sentPairMap[p.clean + "|" + firstTrack]) {
-              skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "이미 발송된 송장(" + firstTrack + ")" });
-              continue;
+          // 송장/방문 발송 시 이미 발송된 건 서버 락 내부 재검증
+          var itemSrc = String(item.source || (trackStr ? "delivery" : "manual")).slice(0, 30);
+          if (skipAlreadySent) {
+            var vMatch = trackStr.match(/^(?:방문\(|VISIT_)(\d{4}-\d{2}-\d{2})\)?$/);
+            if (itemSrc === "visit" || vMatch) {
+              var vDate = vMatch ? vMatch[1] : todayKstPrefix_();
+              if (sentCheck.sentPairMap[p.clean + "|VISIT_" + vDate]) {
+                skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "오늘 이미 발송된 방문문자" });
+                continue;
+              }
+            } else if (trackStr) {
+              var firstTrack = trackStr.split(/[,\s/]+/)[0].replace(/\D/g, "");
+              if (firstTrack && sentCheck.sentPairMap[p.clean + "|" + firstTrack]) {
+                skippedItems.push({ phone: p.formatted, customerName: String(item.customerName || ""), reason: "이미 발송된 송장(" + firstTrack + ")" });
+                continue;
+              }
             }
           }
 
