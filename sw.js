@@ -1,5 +1,5 @@
 // 네트워크 우선(Network-First) + 1.2초 타임아웃 캐시 폴백(캐시가 있을 때만). 외부 요청(구글/솔라피/카페24)은 절대 가로채지 않음.
-const CACHE_NAME = 'joonoo-sms-v3.4';
+const CACHE_NAME = 'joonoo-sms-v3.5';
 const ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {

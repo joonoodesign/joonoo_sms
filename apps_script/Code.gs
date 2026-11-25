@@ -11,7 +11,8 @@ var DEFAULT_DELIVERY_SS_ID_ = "1V7Xk0ILsci2QnRl8jFmYm-hPPskto1XbBgzAYvusr_c";
 var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
-var SERVER_VERSION_ = "2.4";
+var DEFAULT_RCS_BRAND_ID_ = "BR.k8k7pAWg8I";
+var SERVER_VERSION_ = "2.5";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -1334,8 +1335,13 @@ function doPost(e) {
             }
           }
 
-          var msgType = byteLen <= 90 ? "SMS" : "LMS";
-          estimatedCost += msgType === "SMS" ? 18 : 45;
+          var useRcs = (data.useRcs !== false);
+          var rcsBrandId = String(props.getProperty("RCS_BRAND_ID") || DEFAULT_RCS_BRAND_ID_).trim();
+          var rcsActive = Boolean(useRcs && rcsBrandId);
+          var msgType = rcsActive
+            ? (byteLen <= 90 ? "RCS_SMS" : "RCS_LMS")
+            : (byteLen <= 90 ? "SMS" : "LMS");
+          estimatedCost += (msgType === "SMS" || msgType === "RCS_SMS") ? 18 : 45;
 
           validBatch.push({
             cleanPhone: p.clean,
@@ -1383,6 +1389,7 @@ function doPost(e) {
             });
           }
 
+          var rcsBrandIdSend = String(props.getProperty("RCS_BRAND_ID") || DEFAULT_RCS_BRAND_ID_).trim();
           var solapiMessages = [];
           for (var s = 0; s < validBatch.length; s++) {
             var vb = validBatch[s];
@@ -1392,8 +1399,14 @@ function doPost(e) {
               type: vb.msgType,
               text: vb.message
             };
-            if (vb.msgType === "LMS") {
+            if (vb.msgType === "LMS" || vb.msgType === "RCS_LMS") {
               msgPayload.subject = "[주누디자인 안내]";
+            }
+            if ((vb.msgType === "RCS_SMS" || vb.msgType === "RCS_LMS") && rcsBrandIdSend) {
+              msgPayload.rcsOptions = {
+                brandId: rcsBrandIdSend,
+                disableSms: false
+              };
             }
             solapiMessages.push(msgPayload);
           }
@@ -1463,7 +1476,7 @@ function doPost(e) {
             statusLabel = "발송접수";
             detailLabel = "정상 접수 (" + formatSenderDisplay_(senderDigits) + ")";
             sentSuccessCount++;
-            actualSuccessCost += (rowItem.msgType === "SMS" ? 18 : 45);
+            actualSuccessCost += ((rowItem.msgType === "SMS" || rowItem.msgType === "RCS_SMS") ? 18 : 45);
             try { cacheSvc.put(rowItem.dupHashKey, "1", 60); } catch (ce2) {}
           }
 
