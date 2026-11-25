@@ -12,7 +12,7 @@ var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
 var DEFAULT_RCS_BRAND_ID_ = "BR.k8k7pAWg8I";
-var SERVER_VERSION_ = "2.6";
+var SERVER_VERSION_ = "2.7";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -60,7 +60,7 @@ var DEFAULT_TEMPLATES_ = [
   {
     id: "tpl_pickup_addr",
     title: "방문수령 주소",
-    body: "[주누디자인 방문수령 안내]\n주소: 대구광역시 달서구 구마로39길 38\n고객센터: 053-267-3973\n방문 전 연락 부탁드립니다. 감사합니다."
+    body: "[주누디자인 방문수령 안내]\n주소: 대구광역시 달서구 구마로39길 38 (성당동) 2층\n고객센터: 053-267-3973\n방문 전 연락 부탁드립니다. 감사합니다."
   },
   {
     id: "tpl_print_guide",
@@ -1338,8 +1338,9 @@ function doPost(e) {
           var useRcs = (data.useRcs !== false);
           var rcsBrandId = String(props.getProperty("RCS_BRAND_ID") || DEFAULT_RCS_BRAND_ID_).trim();
           var rcsActive = Boolean(useRcs && rcsBrandId);
+          // RCS_SMS는 한글 포함 100자까지 제목 없이 단문 발송 가능 (100자 이하를 RCS_LMS로 보내면 통신사가 앞줄을 잘라 중복 제목을 생성하는 문제 원천 차단)
           var msgType = rcsActive
-            ? (byteLen <= 90 ? "RCS_SMS" : "RCS_LMS")
+            ? (cleanMsg.length <= 100 ? "RCS_SMS" : "RCS_LMS")
             : (byteLen <= 90 ? "SMS" : "LMS");
           estimatedCost += (msgType === "SMS" || msgType === "RCS_SMS") ? 18 : 45;
 
@@ -1401,6 +1402,16 @@ function doPost(e) {
             };
             if (vb.msgType === "LMS") {
               msgPayload.subject = "[주누디자인 안내]";
+            } else if (vb.msgType === "RCS_LMS") {
+              // 장문 RCS_LMS는 첫 줄이 [제목] 형태면 subject로 분리하고 본문 중복 제거 (통신사 임의 앞줄 자름 방지)
+              var lines = String(vb.message || "").split("\n");
+              var firstLine = String(lines[0] || "").trim();
+              if (lines.length > 1 && firstLine.length <= 30 && /^\[.+\]$/.test(firstLine)) {
+                msgPayload.subject = firstLine.replace(/^\[|\]$/g, "").trim();
+                msgPayload.text = lines.slice(1).join("\n").trim();
+              } else {
+                msgPayload.subject = "주누디자인 안내";
+              }
             }
             if ((vb.msgType === "RCS_SMS" || vb.msgType === "RCS_LMS") && rcsBrandIdSend) {
               msgPayload.rcsOptions = {

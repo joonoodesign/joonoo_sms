@@ -821,7 +821,7 @@
         {
           id: 'tpl_pickup_addr',
           title: '방문수령 주소',
-          body: '[주누디자인 방문수령 안내]\n주소: 대구광역시 달서구 구마로39길 38\n고객센터: 053-267-3973\n방문 전 연락 부탁드립니다. 감사합니다.'
+          body: '[주누디자인 방문수령 안내]\n주소: 대구광역시 달서구 구마로39길 38 (성당동) 2층\n고객센터: 053-267-3973\n방문 전 연락 부탁드립니다. 감사합니다.'
         },
         {
           id: 'tpl_print_guide',
@@ -917,14 +917,25 @@
           var messages = items.map(function (it) {
             var toDigits = String(it.phone || '').replace(/\D/g, '');
             var byteLen = calcEucKrBytes(it.message);
-            var isShort = byteLen <= 90;
+            var isShort = useRcsNow ? (String(it.message || '').length <= 100) : (byteLen <= 90);
             var m = {
               to: toDigits,
               from: sender,
               text: it.message,
               type: useRcsNow ? (isShort ? 'RCS_SMS' : 'RCS_LMS') : (isShort ? 'SMS' : 'LMS')
             };
-            if (m.type === 'LMS') m.subject = '[주누디자인 안내]';
+            if (m.type === 'LMS') {
+              m.subject = '[주누디자인 안내]';
+            } else if (m.type === 'RCS_LMS') {
+              var lines = String(it.message || '').split('\n');
+              var firstLine = String(lines[0] || '').trim();
+              if (lines.length > 1 && firstLine.length <= 30 && /^\[.+\]$/.test(firstLine)) {
+                m.subject = firstLine.replace(/^\[|\]$/g, '').trim();
+                m.text = lines.slice(1).join('\n').trim();
+              } else {
+                m.subject = '주누디자인 안내';
+              }
+            }
             if (useRcsNow) {
               m.rcsOptions = {
                 brandId: state.rcsBrandId,
@@ -974,7 +985,7 @@
               cleanPhone: cleanPhone,
               customerName: it.customerName || '',
               trackingNo: it.trackingNo || '',
-              msgType: useRcsNow ? (byteLen <= 90 ? 'RCS_SMS' : 'RCS_LMS') : (byteLen <= 90 ? 'SMS' : 'LMS'),
+              msgType: useRcsNow ? (String(it.message || '').length <= 100 ? 'RCS_SMS' : 'RCS_LMS') : (byteLen <= 90 ? 'SMS' : 'LMS'),
               byteLen: byteLen,
               message: it.message,
               status: ok ? '완료' : '실패',
@@ -1374,12 +1385,24 @@
 
         var bytes = calcEucKrBytes(sanitized.text); // 실제 발송 텍스트 기준 바이트
         var pill = document.getElementById('singleBytePill');
-        if (bytes <= 90) {
+        var charLen = sanitized.text.length;
+        if (state.useRcs) {
+          if (charLen <= 100) {
+            pill.className = 'byte-pill';
+            pill.textContent = charLen + ' / 100자 · RCS 단문 (18원)';
+          } else if (charLen <= 1300) {
+            pill.className = 'byte-pill lms';
+            pill.textContent = charLen + ' / 1,300자 · RCS 장문 (45원)';
+          } else {
+            pill.className = 'byte-pill over';
+            pill.textContent = charLen + ' / 1,300자 초과 (발송불가)';
+          }
+        } else if (bytes <= 90) {
           pill.className = 'byte-pill';
-          pill.textContent = bytes + ' / 90 바이트 · ' + (state.useRcs ? 'RCS 단문 (18원)' : '단문 SMS (18원)');
+          pill.textContent = bytes + ' / 90 바이트 · 단문 SMS (18원)';
         } else if (bytes <= 2000) {
           pill.className = 'byte-pill lms';
-          pill.textContent = bytes + ' / 2,000 바이트 · ' + (state.useRcs ? 'RCS 장문 (45원)' : '장문 LMS (45원)');
+          pill.textContent = bytes + ' / 2,000 바이트 · 장문 LMS (45원)';
         } else {
           pill.className = 'byte-pill over';
           pill.textContent = bytes + ' / 2,000 바이트 초과 (발송불가)';
