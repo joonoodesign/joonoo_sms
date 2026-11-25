@@ -924,7 +924,7 @@
               text: it.message,
               type: useRcsNow ? (isShort ? 'RCS_SMS' : 'RCS_LMS') : (isShort ? 'SMS' : 'LMS')
             };
-            if (m.type === 'LMS' || m.type === 'RCS_LMS') m.subject = '[주누디자인 안내]';
+            if (m.type === 'LMS') m.subject = '[주누디자인 안내]';
             if (useRcsNow) {
               m.rcsOptions = {
                 brandId: state.rcsBrandId,

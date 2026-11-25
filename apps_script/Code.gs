@@ -12,7 +12,7 @@ var DELIVERY_SHEET_GID_ = 350646918;
 var DELIVERY_SHEET_NAME_ = "배송데이터";
 var DEFAULT_SENDER_PHONE_ = "0532673973";
 var DEFAULT_RCS_BRAND_ID_ = "BR.k8k7pAWg8I";
-var SERVER_VERSION_ = "2.5";
+var SERVER_VERSION_ = "2.6";
 
 var SHEET_TEMPLATES_ = "문자상용구";
 var SHEET_LOGS_ = "문자발송내역";
@@ -1399,7 +1399,7 @@ function doPost(e) {
               type: vb.msgType,
               text: vb.message
             };
-            if (vb.msgType === "LMS" || vb.msgType === "RCS_LMS") {
+            if (vb.msgType === "LMS") {
               msgPayload.subject = "[주누디자인 안내]";
             }
             if ((vb.msgType === "RCS_SMS" || vb.msgType === "RCS_LMS") && rcsBrandIdSend) {
