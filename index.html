@@ -1289,6 +1289,8 @@
           badge.textContent = '🔒 PIN 입력 필요 (눌러서 연결)';
         } else if (state.ipBlocked) {
           badge.textContent = '📵 이 인터넷에선 발송 차단 (눌러서 안내)';
+        } else if (state.lastSyncAt === 0 && !state.hasSolapiKey) {
+          badge.textContent = '🔄 서버·솔라피 연결 확인 중...';
         } else if (!state.hasSolapiKey) {
           badge.textContent = '🔗 시트 연결됨 (솔라피 미등록)';
         } else if (state.availableBalance != null) {
